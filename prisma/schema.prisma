@@ -1,0 +1,64 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Patient {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  name      String
+  species   String // 'dog' | 'cat' | 'bird' | 'rabbit' | 'other'
+  breed     String
+  gender    String // 'male' | 'female' | 'unknown'
+  birthDate DateTime
+  ownerId   String
+  tags      String   @default("[]") // JSON string for tags array
+  isActive  Boolean  @default(true)
+
+  // Relations
+  appointments Appointment[]
+
+  @@map("patients")
+}
+
+model Appointment {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  patientId     String
+  vetId         String
+  date          DateTime
+  duration      Int // duration in minutes
+  reason        String
+  status        String // 'scheduled' | 'completed' | 'canceled' | 'no_show'
+  notes         String?
+  estimatedCost Float?
+
+  // Relations
+  patient Patient @relation(fields: [patientId], references: [id], onDelete: Cascade)
+
+  @@map("appointments")
+}
+
+model User {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  email    String @unique
+  name     String
+  role     String // 'admin' | 'veterinarian' | 'receptionist'
+  isActive Boolean @default(true)
+
+  @@map("users")
+}
