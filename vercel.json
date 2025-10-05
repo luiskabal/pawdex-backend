@@ -20,6 +20,10 @@
       "dest": "api/patients.ts"
     },
     {
+      "src": "/api/db-test",
+      "dest": "api/db-test.ts"
+    },
+    {
       "src": "/(.*)",
       "dest": "api/index.ts"
     }
