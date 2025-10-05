@@ -69,7 +69,7 @@ describe('PatientsService', () => {
 
       mockPrismaService.patient.create.mockResolvedValue(mockPatientData);
 
-      const result = await service.create(createPatientDto);
+      const result = await service.create(createPatientDto, 'tenant-1');
 
       expect(mockPrismaService.patient.create).toHaveBeenCalledWith({
         data: {
@@ -78,6 +78,7 @@ describe('PatientsService', () => {
           breedId: createPatientDto.breedId,
           gender: createPatientDto.gender,
           birthDate: createPatientDto.birthDate,
+          tenantId: 'tenant-1',
           ownerId: createPatientDto.ownerId,
           tags: JSON.stringify(createPatientDto.tags),
         },
@@ -100,7 +101,7 @@ describe('PatientsService', () => {
         ownerId: 'owner-1',
       };
 
-      await expect(service.create(invalidPatientDto)).rejects.toThrow(BadRequestException);
+      await expect(service.create(invalidPatientDto, 'tenant-1')).rejects.toThrow(BadRequestException);
     });
   });
 
@@ -113,12 +114,12 @@ describe('PatientsService', () => {
       mockPrismaService.patient.findMany.mockResolvedValue(mockPatients);
       mockPrismaService.patient.count.mockResolvedValue(mockCount);
 
-      const result = await service.findAll(paginationParams);
+      const result = await service.findAll(paginationParams, 'tenant-1');
 
       expect(mockPrismaService.patient.findMany).toHaveBeenCalledWith({
         skip: 0,
         take: 10,
-        where: { isActive: true },
+        where: { isActive: true, tenantId: 'tenant-1' },
         orderBy: { createdAt: 'desc' },
         include: {
           species: true,
@@ -144,12 +145,12 @@ describe('PatientsService', () => {
       mockPrismaService.patient.findMany.mockResolvedValue(mockPatients);
       mockPrismaService.patient.count.mockResolvedValue(mockCount);
 
-      await service.findAll(paginationParams);
+      await service.findAll(paginationParams, 'tenant-1');
 
       expect(mockPrismaService.patient.findMany).toHaveBeenCalledWith({
         skip: 0,
         take: 10,
-        where: { isActive: true, speciesId: 'dog' },
+        where: { isActive: true, speciesId: 'dog', tenantId: 'tenant-1' },
         orderBy: { createdAt: 'desc' },
         include: {
           species: true,
@@ -166,13 +167,14 @@ describe('PatientsService', () => {
       mockPrismaService.patient.findMany.mockResolvedValue(mockPatients);
       mockPrismaService.patient.count.mockResolvedValue(mockCount);
 
-      await service.findAll(paginationParams);
+      await service.findAll(paginationParams, 'tenant-1');
 
       expect(mockPrismaService.patient.findMany).toHaveBeenCalledWith({
         skip: 0,
         take: 10,
         where: { 
           isActive: true,
+          tenantId: 'tenant-1',
           name: { contains: 'Buddy', mode: 'insensitive' }
         },
         orderBy: { createdAt: 'desc' },
@@ -188,10 +190,10 @@ describe('PatientsService', () => {
     it('should return a patient by id', async () => {
       mockPrismaService.patient.findUnique.mockResolvedValue(mockPatientData);
 
-      const result = await service.findOne('patient-1');
+      const result = await service.findOne('patient-1', 'tenant-1');
 
       expect(mockPrismaService.patient.findUnique).toHaveBeenCalledWith({
-        where: { id: 'patient-1' },
+        where: { id: 'patient-1', tenantId: 'tenant-1' },
         include: {
           species: true,
           breed: true,
@@ -204,7 +206,7 @@ describe('PatientsService', () => {
     it('should throw NotFoundException when patient not found', async () => {
       mockPrismaService.patient.findUnique.mockResolvedValue(null);
 
-      await expect(service.findOne('non-existent')).rejects.toThrow(NotFoundException);
+      await expect(service.findOne('non-existent', 'tenant-1')).rejects.toThrow(NotFoundException);
     });
   });
 
@@ -224,13 +226,13 @@ describe('PatientsService', () => {
       mockPrismaService.patient.findUnique.mockResolvedValue(mockPatientData);
       mockPrismaService.patient.update.mockResolvedValue(updatedPatientData);
 
-      const result = await service.update('patient-1', updatePatientDto);
+      const result = await service.update('patient-1', updatePatientDto, 'tenant-1');
 
       expect(mockPrismaService.patient.findUnique).toHaveBeenCalledWith({
-        where: { id: 'patient-1' },
+        where: { id: 'patient-1', tenantId: 'tenant-1' },
       });
       expect(mockPrismaService.patient.update).toHaveBeenCalledWith({
-        where: { id: 'patient-1' },
+        where: { id: 'patient-1', tenantId: 'tenant-1' },
         data: updatePatientDto,
         include: {
           species: true,
@@ -244,7 +246,7 @@ describe('PatientsService', () => {
     it('should throw NotFoundException when patient not found', async () => {
       mockPrismaService.patient.findUnique.mockResolvedValue(null);
 
-      await expect(service.update('non-existent', { name: 'Test' })).rejects.toThrow(NotFoundException);
+      await expect(service.update('non-existent', { name: 'Test' }, 'tenant-1')).rejects.toThrow(NotFoundException);
     });
 
     it('should handle tags update correctly', async () => {
@@ -258,10 +260,10 @@ describe('PatientsService', () => {
         tags: JSON.stringify(updatePatientDto.tags),
       });
 
-      await service.update('patient-1', updatePatientDto);
+      await service.update('patient-1', updatePatientDto, 'tenant-1');
 
       expect(mockPrismaService.patient.update).toHaveBeenCalledWith({
-        where: { id: 'patient-1' },
+        where: { id: 'patient-1', tenantId: 'tenant-1' },
         data: {
           tags: JSON.stringify(updatePatientDto.tags),
         },
@@ -280,13 +282,13 @@ describe('PatientsService', () => {
       mockPrismaService.patient.findUnique.mockResolvedValue(mockPatientData);
       mockPrismaService.patient.update.mockResolvedValue(deactivatedPatientData);
 
-      const result = await service.remove('patient-1');
+      const result = await service.remove('patient-1', 'tenant-1');
 
       expect(mockPrismaService.patient.findUnique).toHaveBeenCalledWith({
-        where: { id: 'patient-1' },
+        where: { id: 'patient-1', tenantId: 'tenant-1' },
       });
       expect(mockPrismaService.patient.update).toHaveBeenCalledWith({
-        where: { id: 'patient-1' },
+        where: { id: 'patient-1', tenantId: 'tenant-1' },
         data: { isActive: false },
         include: {
           species: true,
@@ -300,7 +302,7 @@ describe('PatientsService', () => {
     it('should throw NotFoundException when patient not found', async () => {
       mockPrismaService.patient.findUnique.mockResolvedValue(null);
 
-      await expect(service.remove('non-existent')).rejects.toThrow(NotFoundException);
+      await expect(service.remove('non-existent', 'tenant-1')).rejects.toThrow(NotFoundException);
     });
   });
 
@@ -309,10 +311,10 @@ describe('PatientsService', () => {
       const mockPatients = [mockPatientData];
       mockPrismaService.patient.findMany.mockResolvedValue(mockPatients);
 
-      const result = await service.findByOwnerId('owner-1');
+      const result = await service.findByOwnerId('owner-1', 'tenant-1');
 
       expect(mockPrismaService.patient.findMany).toHaveBeenCalledWith({
-        where: { ownerId: 'owner-1', isActive: true },
+        where: { ownerId: 'owner-1', tenantId: 'tenant-1', isActive: true },
         orderBy: { createdAt: 'desc' },
         include: {
           species: true,
@@ -334,7 +336,7 @@ describe('PatientsService', () => {
       mockPrismaService.patient.findUnique.mockResolvedValue(mockPatientData);
       mockPrismaService.patient.update.mockResolvedValue(patientWithNewTag);
 
-      const result = await service.addTag('patient-1', 'new-tag');
+      const result = await service.addTag('patient-1', 'new-tag', 'tenant-1');
 
       expect(result).toBeInstanceOf(Patient);
       expect(result.tags).toContain('new-tag');
@@ -343,7 +345,7 @@ describe('PatientsService', () => {
     it('should throw NotFoundException when patient not found', async () => {
       mockPrismaService.patient.findUnique.mockResolvedValue(null);
 
-      await expect(service.addTag('non-existent', 'tag')).rejects.toThrow(NotFoundException);
+      await expect(service.addTag('non-existent', 'tag', 'tenant-1')).rejects.toThrow(NotFoundException);
     });
   });
 
@@ -357,7 +359,7 @@ describe('PatientsService', () => {
       mockPrismaService.patient.findUnique.mockResolvedValue(mockPatientData);
       mockPrismaService.patient.update.mockResolvedValue(patientWithRemovedTag);
 
-      const result = await service.removeTag('patient-1', 'friendly');
+      const result = await service.removeTag('patient-1', 'friendly', 'tenant-1');
 
       expect(result).toBeInstanceOf(Patient);
       expect(result.tags).not.toContain('friendly');
@@ -366,7 +368,7 @@ describe('PatientsService', () => {
     it('should throw NotFoundException when patient not found', async () => {
       mockPrismaService.patient.findUnique.mockResolvedValue(null);
 
-      await expect(service.removeTag('non-existent', 'tag')).rejects.toThrow(NotFoundException);
+      await expect(service.removeTag('non-existent', 'tag', 'tenant-1')).rejects.toThrow(NotFoundException);
     });
   });
 });

@@ -9,6 +9,8 @@ import { Appointment } from './entities/appointment.entity';
 describe('AppointmentsController', () => {
   let controller: AppointmentsController;
   let service: AppointmentsService;
+  
+  const mockReq = { tenantId: 'tenant-1' };
 
   const mockAppointment = new Appointment({
     id: '1',
@@ -69,7 +71,8 @@ describe('AppointmentsController', () => {
 
       mockAppointmentsService.create.mockResolvedValue(mockAppointment);
 
-      const result = await controller.create(createDto);
+      const mockReq = { user: { tenantId: 'tenant-1' } };
+      const result = await controller.create(createDto, mockReq);
 
       expect(service.create).toHaveBeenCalledWith(createDto);
       expect(result).toEqual(mockAppointment);
@@ -88,7 +91,8 @@ describe('AppointmentsController', () => {
         new BadRequestException('Scheduled date cannot be in the past')
       );
 
-      await expect(controller.create(createDto)).rejects.toThrow(BadRequestException);
+      const mockReq = { user: { tenantId: 'tenant-1' } };
+      await expect(controller.create(createDto, mockReq)).rejects.toThrow(BadRequestException);
       expect(service.create).toHaveBeenCalledWith(createDto);
     });
   });
@@ -120,9 +124,9 @@ describe('AppointmentsController', () => {
 
       mockAppointmentsService.findAll.mockResolvedValue(mockResult);
 
-      const result = await controller.findAll();
+      const result = await controller.findAll(mockReq);
 
-      expect(service.findAll).toHaveBeenCalledWith({ page: undefined, limit: undefined });
+      expect(service.findAll).toHaveBeenCalledWith({ page: undefined, limit: undefined }, 'tenant-1');
       expect(result).toEqual(mockResult);
     });
   });
@@ -131,9 +135,9 @@ describe('AppointmentsController', () => {
     it('should return an appointment by id', async () => {
       mockAppointmentsService.findOne.mockResolvedValue(mockAppointment);
 
-      const result = await controller.findOne('1');
+      const result = await controller.findOne('1', mockReq);
 
-      expect(service.findOne).toHaveBeenCalledWith('1');
+      expect(service.findOne).toHaveBeenCalledWith('1', 'tenant-1');
       expect(result).toEqual(mockAppointment);
     });
 
@@ -142,8 +146,8 @@ describe('AppointmentsController', () => {
         new NotFoundException('Appointment not found')
       );
 
-      await expect(controller.findOne('999')).rejects.toThrow(NotFoundException);
-      expect(service.findOne).toHaveBeenCalledWith('999');
+      await expect(controller.findOne('999', mockReq)).rejects.toThrow(NotFoundException);
+      expect(service.findOne).toHaveBeenCalledWith('999', 'tenant-1');
     });
   });
 
@@ -152,9 +156,9 @@ describe('AppointmentsController', () => {
       const appointments = [mockAppointment];
       mockAppointmentsService.findByPatient.mockResolvedValue(appointments);
 
-      const result = await controller.findByPatient('patient-1');
+      const result = await controller.findByPatient('patient-1', mockReq);
 
-      expect(service.findByPatient).toHaveBeenCalledWith('patient-1');
+      expect(service.findByPatient).toHaveBeenCalledWith('patient-1', 'tenant-1');
       expect(result).toEqual(appointments);
     });
   });
@@ -164,9 +168,9 @@ describe('AppointmentsController', () => {
       const appointments = [mockAppointment];
       mockAppointmentsService.findByVeterinarian.mockResolvedValue(appointments);
 
-      const result = await controller.findByVeterinarian('vet-1');
+      const result = await controller.findByVeterinarian('vet-1', mockReq);
 
-      expect(service.findByVeterinarian).toHaveBeenCalledWith('vet-1');
+      expect(service.findByVeterinarian).toHaveBeenCalledWith('vet-1', 'tenant-1');
       expect(result).toEqual(appointments);
     });
   });
@@ -179,9 +183,9 @@ describe('AppointmentsController', () => {
 
       mockAppointmentsService.findByDateRange.mockResolvedValue(appointments);
 
-      const result = await controller.findByDateRange(startDate, endDate);
+      const result = await controller.findByDateRange(startDate, endDate, mockReq);
 
-      expect(service.findByDateRange).toHaveBeenCalledWith(startDate, endDate);
+      expect(service.findByDateRange).toHaveBeenCalledWith(startDate, endDate, 'tenant-1');
       expect(result).toEqual(appointments);
     });
 
@@ -193,8 +197,8 @@ describe('AppointmentsController', () => {
         new BadRequestException('Start date must be before end date')
       );
 
-      await expect(controller.findByDateRange(startDate, endDate)).rejects.toThrow(BadRequestException);
-      expect(service.findByDateRange).toHaveBeenCalledWith(startDate, endDate);
+      await expect(controller.findByDateRange(startDate, endDate, mockReq)).rejects.toThrow(BadRequestException);
+      expect(service.findByDateRange).toHaveBeenCalledWith(startDate, endDate, 'tenant-1');
     });
   });
 
@@ -208,9 +212,9 @@ describe('AppointmentsController', () => {
       const updatedAppointment = { ...mockAppointment, ...updateDto };
       mockAppointmentsService.update.mockResolvedValue(updatedAppointment);
 
-      const result = await controller.update('1', updateDto);
+      const result = await controller.update('1', updateDto, mockReq);
 
-      expect(service.update).toHaveBeenCalledWith('1', updateDto);
+      expect(service.update).toHaveBeenCalledWith('1', updateDto, 'tenant-1');
       expect(result).toEqual(updatedAppointment);
     });
 
@@ -221,8 +225,8 @@ describe('AppointmentsController', () => {
         new NotFoundException('Appointment not found')
       );
 
-      await expect(controller.update('999', updateDto)).rejects.toThrow(NotFoundException);
-      expect(service.update).toHaveBeenCalledWith('999', updateDto);
+      await expect(controller.update('999', updateDto, mockReq)).rejects.toThrow(NotFoundException);
+      expect(service.update).toHaveBeenCalledWith('999', updateDto, 'tenant-1');
     });
   });
 
@@ -231,9 +235,9 @@ describe('AppointmentsController', () => {
       const updatedAppointment = { ...mockAppointment, status: 'confirmed' };
       mockAppointmentsService.updateStatus.mockResolvedValue(updatedAppointment);
 
-      const result = await controller.updateStatus('1', 'confirmed');
+      const result = await controller.updateStatus('1', 'confirmed', mockReq);
 
-      expect(service.updateStatus).toHaveBeenCalledWith('1', 'confirmed');
+      expect(service.updateStatus).toHaveBeenCalledWith('1', 'confirmed', 'tenant-1');
       expect(result).toEqual(updatedAppointment);
     });
 
@@ -242,8 +246,8 @@ describe('AppointmentsController', () => {
         new BadRequestException('Cannot change status from completed to scheduled')
       );
 
-      await expect(controller.updateStatus('1', 'scheduled')).rejects.toThrow(BadRequestException);
-      expect(service.updateStatus).toHaveBeenCalledWith('1', 'scheduled');
+      await expect(controller.updateStatus('1', 'scheduled', mockReq)).rejects.toThrow(BadRequestException);
+      expect(service.updateStatus).toHaveBeenCalledWith('1', 'scheduled', 'tenant-1');
     });
   });
 
@@ -252,9 +256,9 @@ describe('AppointmentsController', () => {
       const cancelledAppointment = { ...mockAppointment, status: 'cancelled' };
       mockAppointmentsService.cancel.mockResolvedValue(cancelledAppointment);
 
-      const result = await controller.cancel('1');
+      const result = await controller.cancel('1', mockReq);
 
-      expect(service.cancel).toHaveBeenCalledWith('1');
+      expect(service.cancel).toHaveBeenCalledWith('1', 'tenant-1');
       expect(result).toEqual(cancelledAppointment);
     });
 
@@ -263,8 +267,8 @@ describe('AppointmentsController', () => {
         new BadRequestException('Appointment cannot be cancelled')
       );
 
-      await expect(controller.cancel('1')).rejects.toThrow(BadRequestException);
-      expect(service.cancel).toHaveBeenCalledWith('1');
+      await expect(controller.cancel('1', mockReq)).rejects.toThrow(BadRequestException);
+      expect(service.cancel).toHaveBeenCalledWith('1', 'tenant-1');
     });
   });
 
@@ -272,9 +276,9 @@ describe('AppointmentsController', () => {
     it('should soft delete an appointment', async () => {
       mockAppointmentsService.remove.mockResolvedValue(undefined);
 
-      await controller.remove('1');
+      await controller.remove('1', mockReq);
 
-      expect(service.remove).toHaveBeenCalledWith('1');
+      expect(service.remove).toHaveBeenCalledWith('1', 'tenant-1');
     });
 
     it('should handle not found error', async () => {
@@ -282,8 +286,8 @@ describe('AppointmentsController', () => {
         new NotFoundException('Appointment not found')
       );
 
-      await expect(controller.remove('999')).rejects.toThrow(NotFoundException);
-      expect(service.remove).toHaveBeenCalledWith('999');
+      await expect(controller.remove('999', mockReq)).rejects.toThrow(NotFoundException);
+      expect(service.remove).toHaveBeenCalledWith('999', 'tenant-1');
     });
   });
 });

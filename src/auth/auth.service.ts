@@ -11,6 +11,7 @@ import * as bcrypt from 'bcrypt';
 import { CustomLoggerService } from '../logger/logger.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { PermissionsService } from '../permissions/permissions.service';
+import { TenantsService } from '../tenants/tenants.service';
 import { AuthResponseDto, LoginDto, RegisterDto } from './dto/auth.dto';
 
 @Injectable()
@@ -26,6 +27,7 @@ export class AuthService {
     private configService: ConfigService,
     private logger: CustomLoggerService,
     private permissionsService: PermissionsService,
+    private tenantsService: TenantsService,
   ) {
     this.jwtSecret = this.configService.get<string>('JWT_SECRET') || 'your-secret-key';
     this.jwtExpiresIn = this.configService.get<string>('JWT_EXPIRES_IN') || '15m';
@@ -33,15 +35,24 @@ export class AuthService {
   }
 
   async register(registerDto: RegisterDto): Promise<AuthResponseDto> {
-    const { email, password, name, roleId } = registerDto;
+    const { email, password, name, roleId, tenantId } = registerDto;
 
-    // Check if user already exists
-    const existingUser = await this.prisma.user.findUnique({
-      where: { email },
+    // Validate tenant exists and is active
+    const tenant = await this.tenantsService.findOne(tenantId);
+    if (!tenant.isActive) {
+      throw new BadRequestException('Tenant is not active');
+    }
+
+    // Check if user already exists in this tenant
+    const existingUser = await this.prisma.user.findFirst({
+      where: { 
+        email,
+        tenantId,
+      },
     });
 
     if (existingUser) {
-      throw new ConflictException('User with this email already exists');
+      throw new ConflictException('User with this email already exists in this tenant');
     }
 
     // Validate role exists
@@ -62,15 +73,22 @@ export class AuthService {
         email,
         name,
         roleId,
+        tenantId,
         password: hashedPassword,
       },
       include: {
         role: true,
+        tenant: true,
       },
     });
 
     // Generate tokens
-    const payload = { sub: user.id, email: user.email, roleId: user.roleId };
+    const payload = { 
+      sub: user.id, 
+      email: user.email, 
+      roleId: user.roleId,
+      tenantId: user.tenantId,
+    };
     const accessToken = this.jwtService.sign(payload);
     const refreshToken = this.jwtService.sign(payload, {
       expiresIn: this.configService.get('REFRESH_TOKEN_EXPIRES_IN') || '7d',
@@ -85,7 +103,7 @@ export class AuthService {
       },
     });
 
-    this.logger.log(`User registered successfully: ${user.email}`);
+    this.logger.log(`User registered successfully: ${user.email} in tenant: ${tenant.name}`);
 
     return {
       user: {
@@ -94,6 +112,8 @@ export class AuthService {
         name: user.name,
         roleId: user.roleId,
         role: user.role,
+        tenantId: user.tenantId,
+        tenant: user.tenant,
       },
       accessToken,
       refreshToken,
@@ -101,12 +121,42 @@ export class AuthService {
   }
 
   async login(loginDto: LoginDto): Promise<AuthResponseDto> {
-    const { email, password } = loginDto;
+    const { email, password, tenant } = loginDto;
 
-    // Find user
-    const user = await this.prisma.user.findUnique({
-      where: { email },
-      include: { role: true },
+    let tenantId: string | undefined;
+    let tenantEntity: any = null;
+
+    // If tenant is provided, resolve it
+    if (tenant) {
+      try {
+        // Check if it's a tenant ID or subdomain
+        if (tenant.startsWith('c') && tenant.length > 20) {
+          tenantEntity = await this.tenantsService.findOne(tenant);
+        } else {
+          tenantEntity = await this.tenantsService.findBySubdomain(tenant);
+        }
+        tenantId = tenantEntity.id;
+
+        if (!tenantEntity.isActive) {
+          throw new UnauthorizedException('Tenant is not active');
+        }
+      } catch (error) {
+        throw new UnauthorizedException('Invalid tenant');
+      }
+    }
+
+    // Find user with tenant context
+    const whereClause: any = { email, isActive: true };
+    if (tenantId) {
+      whereClause.tenantId = tenantId;
+    }
+
+    const user = await this.prisma.user.findFirst({
+      where: whereClause,
+      include: { 
+        role: true,
+        tenant: true,
+      },
     });
 
     if (!user) {
@@ -119,13 +169,18 @@ export class AuthService {
       throw new UnauthorizedException('Invalid credentials');
     }
 
-    // Check if user is active
-    if (!user.isActive) {
-      throw new UnauthorizedException('Account is deactivated');
+    // Validate user's tenant is active
+    if (user.tenantId && user.tenant && !user.tenant.isActive) {
+      throw new UnauthorizedException('Tenant is not active');
     }
 
     // Generate tokens
-    const payload = { sub: user.id, email: user.email, roleId: user.roleId };
+    const payload = { 
+      sub: user.id, 
+      email: user.email, 
+      roleId: user.roleId,
+      tenantId: user.tenantId,
+    };
     const accessToken = this.jwtService.sign(payload);
     const refreshToken = this.jwtService.sign(payload, {
       expiresIn: this.configService.get('REFRESH_TOKEN_EXPIRES_IN') || '7d',
@@ -140,7 +195,7 @@ export class AuthService {
       },
     });
 
-    this.logger.log(`User logged in successfully: ${user.email}`);
+    this.logger.log(`User logged in successfully: ${user.email} in tenant: ${user.tenant?.name || 'none'}`);
 
     return {
       user: {
@@ -149,6 +204,8 @@ export class AuthService {
         name: user.name,
         roleId: user.roleId,
         role: user.role,
+        tenantId: user.tenantId,
+        tenant: user.tenant,
       },
       accessToken,
       refreshToken,
@@ -178,7 +235,12 @@ export class AuthService {
       }
 
       // Generate new tokens
-      const newPayload = { sub: user.id, email: user.email, roleId: user.roleId };
+      const newPayload = { 
+        sub: user.id, 
+        email: user.email, 
+        roleId: user.roleId,
+        tenantId: user.tenantId,
+      };
       const accessToken = this.jwtService.sign(newPayload);
       const newRefreshToken = this.jwtService.sign(newPayload, {
         expiresIn: this.configService.get('REFRESH_TOKEN_EXPIRES_IN') || '7d',
@@ -202,6 +264,7 @@ export class AuthService {
           name: user.name,
           roleId: user.roleId,
           role: user.role,
+          tenantId: user.tenantId,
         },
         accessToken,
         refreshToken: newRefreshToken,
@@ -240,11 +303,17 @@ export class AuthService {
       },
       include: {
         role: true,
+        tenant: true,
       },
     });
 
     if (!user) {
       throw new UnauthorizedException('User not found');
+    }
+
+    // Validate tenant is active if user belongs to one
+    if (user.tenantId && user.tenant && !user.tenant.isActive) {
+      throw new UnauthorizedException('Tenant is not active');
     }
 
     return {
@@ -253,6 +322,8 @@ export class AuthService {
       name: user.name,
       roleId: user.roleId,
       role: user.role,
+      tenantId: user.tenantId,
+      tenant: user.tenant,
     };
   }
 
@@ -268,6 +339,7 @@ export class AuthService {
       sub: user.id,
       email: user.email,
       roleId: user.roleId,
+      tenantId: user.tenantId,
       permissions: permissions,
     };
 

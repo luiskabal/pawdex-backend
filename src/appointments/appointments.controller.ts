@@ -9,17 +9,18 @@ import {
   Query,
   ParseIntPipe,
   DefaultValuePipe,
+  Req,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiQuery, ApiParam } from '@nestjs/swagger';
 import { AppointmentsService } from './appointments.service';
 import { CreateAppointmentDto } from './dto/create-appointment.dto';
 import { UpdateAppointmentDto } from './dto/update-appointment.dto';
 import { Appointment } from './entities/appointment.entity';
-import { Public } from '../auth/decorators/public.decorator';
+import { RequireTenant } from '../common/decorators/require-tenant.decorator';
 
 @ApiTags('appointments')
 @Controller('appointments')
-@Public()
+@RequireTenant()
 export class AppointmentsController {
   constructor(private readonly appointmentsService: AppointmentsService) {}
 
@@ -31,8 +32,8 @@ export class AppointmentsController {
     type: Appointment,
   })
   @ApiResponse({ status: 400, description: 'Bad Request.' })
-  async create(@Body() createAppointmentDto: CreateAppointmentDto): Promise<Appointment> {
-    return this.appointmentsService.create(createAppointmentDto);
+  async create(@Body() createAppointmentDto: CreateAppointmentDto, @Req() req: any): Promise<Appointment> {
+    return this.appointmentsService.create(createAppointmentDto, req.tenantId);
   }
 
   @Get()
@@ -44,10 +45,11 @@ export class AppointmentsController {
     description: 'Return paginated appointments.',
   })
   async findAll(
+    @Req() req: any,
     @Query('page', new DefaultValuePipe(1), ParseIntPipe) page?: number,
     @Query('limit', new DefaultValuePipe(10), ParseIntPipe) limit?: number,
   ) {
-    return this.appointmentsService.findAll({ page, limit });
+    return this.appointmentsService.findAll({ page, limit }, req.tenantId);
   }
 
   @Get(':id')
@@ -59,8 +61,8 @@ export class AppointmentsController {
     type: Appointment,
   })
   @ApiResponse({ status: 404, description: 'Appointment not found.' })
-  async findOne(@Param('id') id: string): Promise<Appointment> {
-    return this.appointmentsService.findOne(id);
+  async findOne(@Param('id') id: string, @Req() req: any): Promise<Appointment> {
+    return this.appointmentsService.findOne(id, req.tenantId);
   }
 
   @Get('patient/:patientId')
@@ -71,8 +73,8 @@ export class AppointmentsController {
     description: 'Return appointments for the patient.',
     type: [Appointment],
   })
-  async findByPatient(@Param('patientId') patientId: string): Promise<Appointment[]> {
-    return this.appointmentsService.findByPatient(patientId);
+  async findByPatient(@Param('patientId') patientId: string, @Req() req: any): Promise<Appointment[]> {
+    return this.appointmentsService.findByPatient(patientId, req.tenantId);
   }
 
   @Get('veterinarian/:vetId')
@@ -83,8 +85,8 @@ export class AppointmentsController {
     description: 'Return appointments for the veterinarian.',
     type: [Appointment],
   })
-  async findByVeterinarian(@Param('vetId') vetId: string): Promise<Appointment[]> {
-    return this.appointmentsService.findByVeterinarian(vetId);
+  async findByVeterinarian(@Param('vetId') vetId: string, @Req() req: any): Promise<Appointment[]> {
+    return this.appointmentsService.findByVeterinarian(vetId, req.tenantId);
   }
 
   @Get('date-range/:startDate/:endDate')
@@ -100,8 +102,9 @@ export class AppointmentsController {
   async findByDateRange(
     @Param('startDate') startDate: Date,
     @Param('endDate') endDate: Date,
+    @Req() req: any,
   ): Promise<Appointment[]> {
-    return this.appointmentsService.findByDateRange(startDate, endDate);
+    return this.appointmentsService.findByDateRange(startDate, endDate, req.tenantId);
   }
 
   @Patch(':id')
@@ -117,8 +120,9 @@ export class AppointmentsController {
   async update(
     @Param('id') id: string,
     @Body() updateAppointmentDto: UpdateAppointmentDto,
+    @Req() req: any,
   ): Promise<Appointment> {
-    return this.appointmentsService.update(id, updateAppointmentDto);
+    return this.appointmentsService.update(id, updateAppointmentDto, req.tenantId);
   }
 
   @Patch(':id/status/:status')
@@ -135,8 +139,9 @@ export class AppointmentsController {
   async updateStatus(
     @Param('id') id: string,
     @Param('status') status: 'scheduled' | 'confirmed' | 'in-progress' | 'completed' | 'cancelled' | 'no-show',
+    @Req() req: any,
   ): Promise<Appointment> {
-    return this.appointmentsService.updateStatus(id, status);
+    return this.appointmentsService.updateStatus(id, status, req.tenantId);
   }
 
   @Patch(':id/cancel')
@@ -149,8 +154,8 @@ export class AppointmentsController {
   })
   @ApiResponse({ status: 404, description: 'Appointment not found.' })
   @ApiResponse({ status: 400, description: 'Appointment cannot be cancelled.' })
-  async cancel(@Param('id') id: string): Promise<Appointment> {
-    return this.appointmentsService.cancel(id);
+  async cancel(@Param('id') id: string, @Req() req: any): Promise<Appointment> {
+    return this.appointmentsService.cancel(id, req.tenantId);
   }
 
   @Delete(':id')
@@ -161,7 +166,7 @@ export class AppointmentsController {
     description: 'The appointment has been successfully deleted.',
   })
   @ApiResponse({ status: 404, description: 'Appointment not found.' })
-  async remove(@Param('id') id: string): Promise<Appointment> {
-    return this.appointmentsService.remove(id);
+  async remove(@Param('id') id: string, @Req() req: any): Promise<Appointment> {
+    return this.appointmentsService.remove(id, req.tenantId);
   }
 }

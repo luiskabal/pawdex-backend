@@ -40,12 +40,19 @@ export interface PaginatedResponse<T> {
 export class PatientsService {
   constructor(private prisma: PrismaService) {}
 
-  async create(createPatientDto: CreatePatientDto): Promise<Patient> {
+  async create(createPatientDto: CreatePatientDto, tenantId: string): Promise<Patient> {
     try {
       // Validate foreign key relationships
-      const [species, breed] = await Promise.all([
+      const [species, breed, owner] = await Promise.all([
         this.prisma.species.findUnique({ where: { id: createPatientDto.speciesId } }),
         this.prisma.breed.findUnique({ where: { id: createPatientDto.breedId } }),
+        this.prisma.user.findFirst({ 
+          where: { 
+            id: createPatientDto.ownerId, 
+            tenantId,
+            isActive: true 
+          } 
+        }),
       ]);
 
       if (!species) {
@@ -54,6 +61,10 @@ export class PatientsService {
 
       if (!breed) {
         throw new BadRequestException('Invalid breed ID');
+      }
+
+      if (!owner) {
+        throw new BadRequestException('Invalid owner ID or owner not found in this tenant');
       }
 
       // Validate that breed belongs to the specified species
@@ -85,6 +96,7 @@ export class PatientsService {
         gender: createPatientDto.gender,
         birthDate: createPatientDto.birthDate,
         ownerId: createPatientDto.ownerId,
+        tenantId, // TENANT ISOLATION
         tags: JSON.stringify(createPatientDto.tags || []),
       };
 
@@ -93,6 +105,13 @@ export class PatientsService {
         include: {
           species: true,
           breed: true,
+          owner: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+            }
+          }
         }
       });
       return this.mapToPatientEntity(createdPatient);
@@ -104,7 +123,7 @@ export class PatientsService {
     }
   }
 
-  async findAll(params: PaginationParams): Promise<PaginatedResponse<Patient>> {
+  async findAll(params: PaginationParams, tenantId: string): Promise<PaginatedResponse<Patient>> {
     const { page = 1, limit = 10, speciesId, search } = params;
     
     // Ensure page and limit are numbers
@@ -113,7 +132,10 @@ export class PatientsService {
     
     const skip = (pageNum - 1) * limitNum;
 
-    const where: any = { isActive: true };
+    const where: any = { 
+      isActive: true,
+      tenantId // TENANT ISOLATION
+    };
     
     if (speciesId) {
       where.speciesId = speciesId;
@@ -132,6 +154,13 @@ export class PatientsService {
         include: {
           species: true,
           breed: true,
+          owner: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+            }
+          }
         },
       }),
       this.prisma.patient.count({ where }),
@@ -149,29 +178,44 @@ export class PatientsService {
     };
   }
 
-  async findOne(id: string): Promise<Patient> {
-    const patient = await this.prisma.patient.findUnique({
-      where: { id },
+  async findOne(id: string, tenantId: string): Promise<Patient> {
+    const patient = await this.prisma.patient.findFirst({
+      where: { 
+        id, 
+        tenantId, // TENANT ISOLATION
+        isActive: true 
+      },
       include: {
         species: true,
         breed: true,
+        owner: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+          }
+        }
       },
     });
 
     if (!patient) {
-      throw new NotFoundException(`Patient with ID ${id} not found`);
+      throw new NotFoundException(`Patient with ID ${id} not found in this tenant`);
     }
 
     return this.mapToPatientEntity(patient);
   }
 
-  async update(id: string, updatePatientDto: UpdatePatientDto): Promise<Patient> {
-    const existingPatient = await this.prisma.patient.findUnique({
-      where: { id },
+  async update(id: string, updatePatientDto: UpdatePatientDto, tenantId: string): Promise<Patient> {
+    const existingPatient = await this.prisma.patient.findFirst({
+      where: { 
+        id, 
+        tenantId, // TENANT ISOLATION
+        isActive: true 
+      },
     });
 
     if (!existingPatient) {
-      throw new NotFoundException(`Patient with ID ${id} not found`);
+      throw new NotFoundException(`Patient with ID ${id} not found in this tenant`);
     }
 
     // Validate foreign key relationships if they're being updated
@@ -218,58 +262,97 @@ export class PatientsService {
     }
 
     const updatedPatient = await this.prisma.patient.update({
-      where: { id },
+      where: { 
+        id,
+        tenantId // TENANT ISOLATION
+      },
       data: updateData,
       include: {
         species: true,
         breed: true,
+        owner: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+          }
+        }
       },
     });
 
     return this.mapToPatientEntity(updatedPatient);
   }
 
-  async remove(id: string): Promise<Patient> {
-    const existingPatient = await this.prisma.patient.findUnique({
-      where: { id },
+  async remove(id: string, tenantId: string): Promise<Patient> {
+    const existingPatient = await this.prisma.patient.findFirst({
+      where: { 
+        id, 
+        tenantId, // TENANT ISOLATION
+        isActive: true 
+      },
     });
 
     if (!existingPatient) {
-      throw new NotFoundException(`Patient with ID ${id} not found`);
+      throw new NotFoundException(`Patient with ID ${id} not found in this tenant`);
     }
 
     const updatedPatient = await this.prisma.patient.update({
-      where: { id },
+      where: { 
+        id,
+        tenantId // TENANT ISOLATION
+      },
       data: { isActive: false },
       include: {
         species: true,
         breed: true,
+        owner: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+          }
+        }
       },
     });
 
     return this.mapToPatientEntity(updatedPatient);
   }
 
-  async findByOwnerId(ownerId: string): Promise<Patient[]> {
+  async findByOwnerId(ownerId: string, tenantId: string): Promise<Patient[]> {
     const patients = await this.prisma.patient.findMany({
-      where: { ownerId, isActive: true },
+      where: { 
+        ownerId, 
+        tenantId, // TENANT ISOLATION
+        isActive: true 
+      },
       orderBy: { createdAt: 'desc' },
       include: {
         species: true,
         breed: true,
+        owner: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+          }
+        }
       },
     });
 
     return patients.map(patient => this.mapToPatientEntity(patient));
   }
 
-  async addTag(id: string, tag: string): Promise<Patient> {
-    const existingPatient = await this.prisma.patient.findUnique({
-      where: { id },
+  async addTag(id: string, tag: string, tenantId: string): Promise<Patient> {
+    const existingPatient = await this.prisma.patient.findFirst({
+      where: { 
+        id, 
+        tenantId, // TENANT ISOLATION
+        isActive: true 
+      },
     });
 
     if (!existingPatient) {
-      throw new NotFoundException(`Patient with ID ${id} not found`);
+      throw new NotFoundException(`Patient with ID ${id} not found in this tenant`);
     }
 
     const currentTags = JSON.parse(existingPatient.tags || '[]');
@@ -278,56 +361,86 @@ export class PatientsService {
     }
 
     const updatedPatient = await this.prisma.patient.update({
-      where: { id },
+      where: { 
+        id,
+        tenantId // TENANT ISOLATION
+      },
       data: { tags: JSON.stringify(currentTags) },
       include: {
         species: true,
         breed: true,
+        owner: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+          }
+        }
       },
     });
 
     return this.mapToPatientEntity(updatedPatient);
   }
 
-  async removeTag(id: string, tag: string): Promise<Patient> {
-    const existingPatient = await this.prisma.patient.findUnique({
-      where: { id },
+  async removeTag(id: string, tag: string, tenantId: string): Promise<Patient> {
+    const existingPatient = await this.prisma.patient.findFirst({
+      where: { 
+        id, 
+        tenantId, // TENANT ISOLATION
+        isActive: true 
+      },
     });
 
     if (!existingPatient) {
-      throw new NotFoundException(`Patient with ID ${id} not found`);
+      throw new NotFoundException(`Patient with ID ${id} not found in this tenant`);
     }
 
     const currentTags = JSON.parse(existingPatient.tags || '[]');
     const filteredTags = currentTags.filter((t: string) => t !== tag);
 
     const updatedPatient = await this.prisma.patient.update({
-      where: { id },
+      where: { 
+        id,
+        tenantId // TENANT ISOLATION
+      },
       data: { tags: JSON.stringify(filteredTags) },
       include: {
         species: true,
         breed: true,
+        owner: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+          }
+        }
       },
     });
 
     return this.mapToPatientEntity(updatedPatient);
   }
 
+  // Global methods (no tenant isolation needed)
   async getSpecies(): Promise<any[]> {
     return this.prisma.species.findMany({
+      where: { isActive: true },
       orderBy: { name: 'asc' },
     });
   }
 
   async getBreedsBySpecies(speciesId: string): Promise<any[]> {
     return this.prisma.breed.findMany({
-      where: { speciesId },
+      where: { 
+        speciesId,
+        isActive: true 
+      },
       orderBy: { name: 'asc' },
     });
   }
 
   async getAllBreeds(): Promise<any[]> {
     return this.prisma.breed.findMany({
+      where: { isActive: true },
       include: { species: true },
       orderBy: [{ species: { name: 'asc' } }, { name: 'asc' }],
     });

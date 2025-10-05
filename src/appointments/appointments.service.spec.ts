@@ -101,7 +101,7 @@ describe('AppointmentsService', () => {
     it('should create a new appointment', async () => {
       mockPrismaService.appointment.create.mockResolvedValue(mockAppointmentData);
 
-      const result = await service.create(createAppointmentDto);
+      const result = await service.create(createAppointmentDto, 'tenant-1');
 
       expect(mockPrismaService.appointment.create).toHaveBeenCalledWith({
         data: {
@@ -134,7 +134,7 @@ describe('AppointmentsService', () => {
         date: new Date('2020-01-01T10:00:00Z'),
       };
 
-      await expect(service.create(pastDateDto)).rejects.toThrow(BadRequestException);
+      await expect(service.create(pastDateDto, 'tenant-1')).rejects.toThrow(BadRequestException);
       expect(mockPrismaService.appointment.create).not.toHaveBeenCalled();
     });
 
@@ -144,7 +144,7 @@ describe('AppointmentsService', () => {
         duration: -10,
       };
 
-      await expect(service.create(invalidDurationDto)).rejects.toThrow(BadRequestException);
+      await expect(service.create(invalidDurationDto, 'tenant-1')).rejects.toThrow(BadRequestException);
       expect(mockPrismaService.appointment.create).not.toHaveBeenCalled();
     });
   });
@@ -155,7 +155,7 @@ describe('AppointmentsService', () => {
       mockPrismaService.appointment.findMany.mockResolvedValue(mockAppointments);
       mockPrismaService.appointment.count.mockResolvedValue(1);
 
-      const result = await service.findAll({ page: 1, limit: 10 });
+      const result = await service.findAll({ page: 1, limit: 10 }, 'tenant-1');
 
       expect(mockPrismaService.appointment.findMany).toHaveBeenCalledWith({
         skip: 0,
@@ -188,7 +188,7 @@ describe('AppointmentsService', () => {
       mockPrismaService.appointment.findMany.mockResolvedValue([]);
       mockPrismaService.appointment.count.mockResolvedValue(0);
 
-      const result = await service.findAll({ page: 1, limit: 10 });
+      const result = await service.findAll({ page: 1, limit: 10 }, 'tenant-1');
 
       expect(result.data).toHaveLength(0);
       expect(result.total).toBe(0);
@@ -198,7 +198,7 @@ describe('AppointmentsService', () => {
       mockPrismaService.appointment.findMany.mockResolvedValue([]);
       mockPrismaService.appointment.count.mockResolvedValue(0);
 
-      await service.findAll({ page: 3, limit: 5 });
+      await service.findAll({ page: 3, limit: 5 }, 'tenant-1');
 
       expect(mockPrismaService.appointment.findMany).toHaveBeenCalledWith({
         skip: 10, // (3-1) * 5
@@ -226,10 +226,10 @@ describe('AppointmentsService', () => {
     it('should return an appointment by id', async () => {
       mockPrismaService.appointment.findUnique.mockResolvedValue(mockAppointmentData);
 
-      const result = await service.findOne('1');
+      const result = await service.findOne('1', 'tenant-1');
 
       expect(mockPrismaService.appointment.findUnique).toHaveBeenCalledWith({
-        where: { id: '1' },
+        where: { id: '1', tenantId: 'tenant-1' },
         include: {
           status: true,
           patient: {
@@ -252,7 +252,7 @@ describe('AppointmentsService', () => {
     it('should throw NotFoundException when appointment not found', async () => {
       mockPrismaService.appointment.findUnique.mockResolvedValue(null);
 
-      await expect(service.findOne('999')).rejects.toThrow(NotFoundException);
+      await expect(service.findOne('999', 'tenant-1')).rejects.toThrow(NotFoundException);
       expect(mockPrismaService.appointment.findUnique).toHaveBeenCalledWith({
         where: { id: '999' },
         include: {
@@ -278,7 +278,7 @@ describe('AppointmentsService', () => {
       const mockAppointments = [mockAppointmentData];
       mockPrismaService.appointment.findMany.mockResolvedValue(mockAppointments);
 
-      const result = await service.findByPatient('patient-1');
+      const result = await service.findByPatient('patient-1', 'tenant-1');
 
       expect(mockPrismaService.appointment.findMany).toHaveBeenCalledWith({
         where: { patientId: 'patient-1' },
@@ -306,7 +306,7 @@ describe('AppointmentsService', () => {
     it('should return empty array when no appointments found for patient', async () => {
       mockPrismaService.appointment.findMany.mockResolvedValue([]);
 
-      const result = await service.findByPatient('patient-999');
+      const result = await service.findByPatient('patient-999', 'tenant-1');
 
       expect(result).toHaveLength(0);
     });
@@ -317,7 +317,7 @@ describe('AppointmentsService', () => {
       const mockAppointments = [mockAppointmentData];
       mockPrismaService.appointment.findMany.mockResolvedValue(mockAppointments);
 
-      const result = await service.findByVeterinarian('vet-1');
+      const result = await service.findByVeterinarian('vet-1', 'tenant-1');
 
       expect(mockPrismaService.appointment.findMany).toHaveBeenCalledWith({
         where: { vetId: 'vet-1' },
@@ -345,7 +345,7 @@ describe('AppointmentsService', () => {
     it('should return empty array when no appointments found for veterinarian', async () => {
       mockPrismaService.appointment.findMany.mockResolvedValue([]);
 
-      const result = await service.findByVeterinarian('vet-999');
+      const result = await service.findByVeterinarian('vet-999', 'tenant-1');
 
       expect(result).toHaveLength(0);
     });
@@ -358,7 +358,7 @@ describe('AppointmentsService', () => {
       const mockAppointments = [mockAppointmentData];
       mockPrismaService.appointment.findMany.mockResolvedValue(mockAppointments);
 
-      const result = await service.findByDateRange(startDate, endDate);
+      const result = await service.findByDateRange(startDate, endDate, 'tenant-1');
 
       expect(mockPrismaService.appointment.findMany).toHaveBeenCalledWith({
         where: {
@@ -391,7 +391,7 @@ describe('AppointmentsService', () => {
       const startDate = new Date('2024-12-31T00:00:00Z');
       const endDate = new Date('2024-12-01T00:00:00Z');
 
-      await expect(service.findByDateRange(startDate, endDate)).rejects.toThrow(BadRequestException);
+      await expect(service.findByDateRange(startDate, endDate, 'tenant-1')).rejects.toThrow(BadRequestException);
       expect(mockPrismaService.appointment.findMany).not.toHaveBeenCalled();
     });
   });
@@ -407,10 +407,10 @@ describe('AppointmentsService', () => {
       mockPrismaService.appointment.findUnique.mockResolvedValue(mockAppointmentData);
       mockPrismaService.appointment.update.mockResolvedValue(updatedAppointmentData);
 
-      const result = await service.update('1', mockUpdateAppointmentDto);
+      const result = await service.update('1', mockUpdateAppointmentDto, 'tenant-1');
 
       expect(mockPrismaService.appointment.findUnique).toHaveBeenCalledWith({
-        where: { id: '1' },
+        where: { id: '1', tenantId: 'tenant-1' },
         include: {
           status: true,
         },
@@ -444,7 +444,7 @@ describe('AppointmentsService', () => {
     it('should throw NotFoundException when appointment not found', async () => {
       mockPrismaService.appointment.findUnique.mockResolvedValue(null);
 
-      await expect(service.update('999', mockUpdateAppointmentDto)).rejects.toThrow(NotFoundException);
+      await expect(service.update('999', mockUpdateAppointmentDto, 'tenant-1')).rejects.toThrow(NotFoundException);
       expect(mockPrismaService.appointment.update).not.toHaveBeenCalled();
     });
 
@@ -455,7 +455,7 @@ describe('AppointmentsService', () => {
         date: new Date('2020-01-01T10:00:00Z'),
       };
 
-      await expect(service.update('1', pastDateUpdate)).rejects.toThrow(BadRequestException);
+      await expect(service.update('1', pastDateUpdate, 'tenant-1')).rejects.toThrow(BadRequestException);
       expect(mockPrismaService.appointment.update).not.toHaveBeenCalled();
     });
 
@@ -471,7 +471,7 @@ describe('AppointmentsService', () => {
       };
       mockPrismaService.appointment.findUnique.mockResolvedValue(completedAppointment);
 
-      await expect(service.update('1', mockUpdateAppointmentDto)).rejects.toThrow(BadRequestException);
+      await expect(service.update('1', mockUpdateAppointmentDto, 'tenant-1')).rejects.toThrow(BadRequestException);
       expect(mockPrismaService.appointment.update).not.toHaveBeenCalled();
     });
   });
@@ -492,10 +492,10 @@ describe('AppointmentsService', () => {
       mockPrismaService.appointment.findUnique.mockResolvedValue(mockAppointmentData);
       mockPrismaService.appointment.update.mockResolvedValue(updatedAppointmentData);
 
-      const result = await service.updateStatus('1', 'completed');
+      const result = await service.updateStatus('1', 'completed', 'tenant-1');
 
       expect(mockPrismaService.appointment.findUnique).toHaveBeenCalledWith({
-        where: { id: '1' },
+        where: { id: '1', tenantId: 'tenant-1' },
         include: {
           status: true,
         },
@@ -525,7 +525,7 @@ describe('AppointmentsService', () => {
     it('should throw NotFoundException when appointment not found', async () => {
       mockPrismaService.appointment.findUnique.mockResolvedValue(null);
 
-      await expect(service.updateStatus('999', 'completed')).rejects.toThrow(NotFoundException);
+      await expect(service.updateStatus('999', 'completed', 'tenant-1')).rejects.toThrow(NotFoundException);
       expect(mockPrismaService.appointment.update).not.toHaveBeenCalled();
     });
 
@@ -541,7 +541,7 @@ describe('AppointmentsService', () => {
       };
       mockPrismaService.appointment.findUnique.mockResolvedValue(completedAppointment);
 
-      await expect(service.updateStatus('1', 'scheduled')).rejects.toThrow(BadRequestException);
+      await expect(service.updateStatus('1', 'scheduled', 'tenant-1')).rejects.toThrow(BadRequestException);
       expect(mockPrismaService.appointment.update).not.toHaveBeenCalled();
     });
   });
@@ -562,10 +562,10 @@ describe('AppointmentsService', () => {
       mockPrismaService.appointment.findUnique.mockResolvedValue(mockAppointmentData);
       mockPrismaService.appointment.update.mockResolvedValue(cancelledAppointmentData);
 
-      const result = await service.cancel('1');
+      const result = await service.cancel('1', 'tenant-1');
 
       expect(mockPrismaService.appointment.findUnique).toHaveBeenCalledWith({
-        where: { id: '1' },
+        where: { id: '1', tenantId: 'tenant-1' },
         include: {
           status: true,
         },
@@ -595,7 +595,7 @@ describe('AppointmentsService', () => {
     it('should throw NotFoundException when appointment not found', async () => {
       mockPrismaService.appointment.findUnique.mockResolvedValue(null);
 
-      await expect(service.cancel('999')).rejects.toThrow(NotFoundException);
+      await expect(service.cancel('999', 'tenant-1')).rejects.toThrow(NotFoundException);
       expect(mockPrismaService.appointment.update).not.toHaveBeenCalled();
     });
 
@@ -611,7 +611,7 @@ describe('AppointmentsService', () => {
       };
       mockPrismaService.appointment.findUnique.mockResolvedValue(completedAppointment);
 
-      await expect(service.cancel('1')).rejects.toThrow(BadRequestException);
+      await expect(service.cancel('1', 'tenant-1')).rejects.toThrow(BadRequestException);
       expect(mockPrismaService.appointment.update).not.toHaveBeenCalled();
     });
   });
@@ -632,10 +632,10 @@ describe('AppointmentsService', () => {
       mockPrismaService.appointment.findUnique.mockResolvedValue(mockAppointmentData);
       mockPrismaService.appointment.update.mockResolvedValue(deletedAppointmentData);
 
-      const result = await service.remove('1');
+      const result = await service.remove('1', 'tenant-1');
 
       expect(mockPrismaService.appointment.findUnique).toHaveBeenCalledWith({
-        where: { id: '1' },
+        where: { id: '1', tenantId: 'tenant-1' },
       });
       expect(mockPrismaService.appointment.update).toHaveBeenCalledWith({
         where: { id: '1' },
@@ -651,7 +651,7 @@ describe('AppointmentsService', () => {
     it('should throw NotFoundException when appointment not found', async () => {
       mockPrismaService.appointment.findUnique.mockResolvedValue(null);
 
-      await expect(service.remove('999')).rejects.toThrow(NotFoundException);
+      await expect(service.remove('999', 'tenant-1')).rejects.toThrow(NotFoundException);
       expect(mockPrismaService.appointment.update).not.toHaveBeenCalled();
     });
   });

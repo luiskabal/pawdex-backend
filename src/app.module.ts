@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Module, MiddlewareConsumer, NestModule } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { APP_INTERCEPTOR, APP_FILTER, APP_GUARD } from '@nestjs/core';
 import { AppController } from './app.controller';
@@ -10,9 +10,13 @@ import { AuthModule } from './auth/auth.module';
 import { PermissionsModule } from './permissions/permissions.module';
 import { RolesModule } from './roles/roles.module';
 import { FeatureFlagsModule } from './feature-flags/feature-flags.module';
+import { TenantsModule } from './tenants/tenants.module';
+import { CommonModule } from './common/common.module';
 import { HttpLoggerInterceptor } from './logger/http-logger.interceptor';
 import { GlobalExceptionFilter } from './logger/global-exception.filter';
 import { JwtAuthGuard } from './auth/guards/jwt-auth.guard';
+import { TenantContextMiddleware } from './common/middleware/tenant-context.middleware';
+import { TenantGuard } from './common/guards/tenant.guard';
 
 @Module({
   imports: [
@@ -21,10 +25,12 @@ import { JwtAuthGuard } from './auth/guards/jwt-auth.guard';
     }),
     LoggerModule,
     PrismaModule,
+    CommonModule,
     AuthModule,
     PermissionsModule,
     RolesModule,
     FeatureFlagsModule,
+    TenantsModule,
     PatientsModule,
     AppointmentsModule,
   ],
@@ -42,6 +48,16 @@ import { JwtAuthGuard } from './auth/guards/jwt-auth.guard';
       provide: APP_GUARD,
       useClass: JwtAuthGuard,
     },
+    {
+      provide: APP_GUARD,
+      useClass: TenantGuard,
+    },
   ],
 })
-export class AppModule {}
+export class AppModule implements NestModule {
+  configure(consumer: MiddlewareConsumer) {
+    consumer
+      .apply(TenantContextMiddleware)
+      .forRoutes('*');
+  }
+}

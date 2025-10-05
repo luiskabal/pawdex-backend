@@ -21,7 +21,7 @@ export interface PaginatedResult<T> {
 export class AppointmentsService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async create(createAppointmentDto: CreateAppointmentDto): Promise<Appointment> {
+  async create(createAppointmentDto: CreateAppointmentDto, tenantId: string): Promise<Appointment> {
     // Validate scheduled date is not in the past
     if (createAppointmentDto.date < new Date()) {
       throw new BadRequestException('Scheduled date cannot be in the past');
@@ -32,11 +32,36 @@ export class AppointmentsService {
       throw new BadRequestException('Duration must be positive');
     }
 
-    // Use the human-readable 'scheduled' status ID directly
+    // Validate that patient and vet belong to the same tenant
+    const [patient, vet] = await Promise.all([
+      this.prisma.patient.findFirst({
+        where: { 
+          id: createAppointmentDto.patientId, 
+          tenantId,
+          isActive: true 
+        }
+      }),
+      this.prisma.user.findFirst({
+        where: { 
+          id: createAppointmentDto.vetId, 
+          tenantId,
+          isActive: true 
+        }
+      })
+    ]);
+
+    if (!patient) {
+      throw new BadRequestException('Patient not found in this tenant');
+    }
+
+    if (!vet) {
+      throw new BadRequestException('Veterinarian not found in this tenant');
+    }
 
     const appointmentData = await this.prisma.appointment.create({
       data: {
         ...createAppointmentDto,
+        tenantId, // TENANT ISOLATION
         statusId: 'scheduled',
       },
       include: {
@@ -58,7 +83,7 @@ export class AppointmentsService {
     return new Appointment(this.mapToAppointmentData(appointmentData));
   }
 
-  async findAll(params: PaginationParams): Promise<PaginatedResult<Appointment>> {
+  async findAll(params: PaginationParams, tenantId: string): Promise<PaginatedResult<Appointment>> {
     const { page = 1, limit = 10 } = params;
     const skip = (page - 1) * limit;
 
@@ -66,6 +91,7 @@ export class AppointmentsService {
       this.prisma.appointment.findMany({
         skip,
         take: limit,
+        where: { tenantId }, // TENANT ISOLATION
         orderBy: { date: 'asc' },
         include: {
           status: true,
@@ -82,7 +108,7 @@ export class AppointmentsService {
           },
         },
       }),
-      this.prisma.appointment.count(),
+      this.prisma.appointment.count({ where: { tenantId } }), // TENANT ISOLATION
     ]);
 
     const appointmentEntities = appointments.map(appointment => new Appointment(this.mapToAppointmentData(appointment)));
@@ -96,9 +122,12 @@ export class AppointmentsService {
     };
   }
 
-  async findOne(id: string): Promise<Appointment> {
-    const appointment = await this.prisma.appointment.findUnique({
-      where: { id },
+  async findOne(id: string, tenantId: string): Promise<Appointment> {
+    const appointment = await this.prisma.appointment.findFirst({
+      where: { 
+        id, 
+        tenantId // TENANT ISOLATION
+      },
       include: {
         status: true,
         patient: {
@@ -116,15 +145,31 @@ export class AppointmentsService {
     });
 
     if (!appointment) {
-      throw new NotFoundException(`Appointment with ID ${id} not found`);
+      throw new NotFoundException(`Appointment with ID ${id} not found in this tenant`);
     }
 
     return new Appointment(this.mapToAppointmentData(appointment));
   }
 
-  async findByPatient(patientId: string): Promise<Appointment[]> {
+  async findByPatient(patientId: string, tenantId: string): Promise<Appointment[]> {
+    // Verify patient belongs to tenant
+    const patient = await this.prisma.patient.findFirst({
+      where: { 
+        id: patientId, 
+        tenantId,
+        isActive: true 
+      }
+    });
+
+    if (!patient) {
+      throw new NotFoundException('Patient not found in this tenant');
+    }
+
     const appointments = await this.prisma.appointment.findMany({
-      where: { patientId },
+      where: { 
+        patientId, 
+        tenantId // TENANT ISOLATION
+      },
       orderBy: { date: 'asc' },
       include: {
         status: true,
@@ -145,9 +190,25 @@ export class AppointmentsService {
     return appointments.map(appointment => new Appointment(this.mapToAppointmentData(appointment)));
   }
 
-  async findByVeterinarian(vetId: string): Promise<Appointment[]> {
+  async findByVeterinarian(vetId: string, tenantId: string): Promise<Appointment[]> {
+    // Verify vet belongs to tenant
+    const vet = await this.prisma.user.findFirst({
+      where: { 
+        id: vetId, 
+        tenantId,
+        isActive: true 
+      }
+    });
+
+    if (!vet) {
+      throw new NotFoundException('Veterinarian not found in this tenant');
+    }
+
     const appointments = await this.prisma.appointment.findMany({
-      where: { vetId },
+      where: { 
+        vetId, 
+        tenantId // TENANT ISOLATION
+      },
       orderBy: { date: 'asc' },
       include: {
         status: true,
@@ -168,13 +229,14 @@ export class AppointmentsService {
     return appointments.map(appointment => new Appointment(this.mapToAppointmentData(appointment)));
   }
 
-  async findByDateRange(startDate: Date, endDate: Date): Promise<Appointment[]> {
+  async findByDateRange(startDate: Date, endDate: Date, tenantId: string): Promise<Appointment[]> {
     if (startDate > endDate) {
       throw new BadRequestException('Start date cannot be after end date');
     }
 
     const appointments = await this.prisma.appointment.findMany({
       where: {
+        tenantId, // TENANT ISOLATION
         date: {
           gte: startDate,
           lte: endDate,
@@ -200,16 +262,19 @@ export class AppointmentsService {
     return appointments.map(appointment => new Appointment(this.mapToAppointmentData(appointment)));
   }
 
-  async update(id: string, updateAppointmentDto: UpdateAppointmentDto): Promise<Appointment> {
-    const existingAppointment = await this.prisma.appointment.findUnique({
-      where: { id },
+  async update(id: string, updateAppointmentDto: UpdateAppointmentDto, tenantId: string): Promise<Appointment> {
+    const existingAppointment = await this.prisma.appointment.findFirst({
+      where: { 
+        id, 
+        tenantId // TENANT ISOLATION
+      },
       include: {
         status: true,
       },
     });
 
     if (!existingAppointment) {
-      throw new NotFoundException(`Appointment with ID ${id} not found`);
+      throw new NotFoundException(`Appointment with ID ${id} not found in this tenant`);
     }
 
     // Check if appointment is completed and cannot be updated
@@ -232,7 +297,10 @@ export class AppointmentsService {
     }
     
     const updatedAppointment = await this.prisma.appointment.update({
-      where: { id },
+      where: { 
+        id,
+        tenantId // TENANT ISOLATION
+      },
       data: finalUpdateData,
       include: {
         status: true,
@@ -255,17 +323,21 @@ export class AppointmentsService {
 
   async updateStatus(
     id: string,
-    status: 'scheduled' | 'confirmed' | 'in-progress' | 'completed' | 'cancelled' | 'no-show'
+    status: 'scheduled' | 'confirmed' | 'in-progress' | 'completed' | 'cancelled' | 'no-show',
+    tenantId: string
   ): Promise<Appointment> {
-    const existingAppointment = await this.prisma.appointment.findUnique({
-      where: { id },
+    const existingAppointment = await this.prisma.appointment.findFirst({
+      where: { 
+        id, 
+        tenantId // TENANT ISOLATION
+      },
       include: {
         status: true,
       },
     });
 
     if (!existingAppointment) {
-      throw new NotFoundException(`Appointment with ID ${id} not found`);
+      throw new NotFoundException(`Appointment with ID ${id} not found in this tenant`);
     }
 
     // Convert status name to human-readable ID format
@@ -280,7 +352,10 @@ export class AppointmentsService {
     }
 
     const updatedAppointment = await this.prisma.appointment.update({
-      where: { id },
+      where: { 
+        id,
+        tenantId // TENANT ISOLATION
+      },
       data: { statusId },
       include: {
         status: true,
@@ -301,16 +376,19 @@ export class AppointmentsService {
     return new Appointment(this.mapToAppointmentData(updatedAppointment));
   }
 
-  async cancel(id: string): Promise<Appointment> {
-    const existingAppointment = await this.prisma.appointment.findUnique({
-      where: { id },
+  async cancel(id: string, tenantId: string): Promise<Appointment> {
+    const existingAppointment = await this.prisma.appointment.findFirst({
+      where: { 
+        id, 
+        tenantId // TENANT ISOLATION
+      },
       include: {
         status: true,
       },
     });
 
     if (!existingAppointment) {
-      throw new NotFoundException(`Appointment with ID ${id} not found`);
+      throw new NotFoundException(`Appointment with ID ${id} not found in this tenant`);
     }
 
     // Check if appointment can be cancelled - use statusId directly
@@ -323,7 +401,10 @@ export class AppointmentsService {
     }
 
     const cancelledAppointment = await this.prisma.appointment.update({
-      where: { id },
+      where: { 
+        id,
+        tenantId // TENANT ISOLATION
+      },
       data: { statusId: 'cancelled' },
       include: {
         status: true,
@@ -344,18 +425,24 @@ export class AppointmentsService {
     return new Appointment(this.mapToAppointmentData(cancelledAppointment));
   }
 
-  async remove(id: string): Promise<Appointment> {
-    const existingAppointment = await this.prisma.appointment.findUnique({
-      where: { id },
+  async remove(id: string, tenantId: string): Promise<Appointment> {
+    const existingAppointment = await this.prisma.appointment.findFirst({
+      where: { 
+        id, 
+        tenantId // TENANT ISOLATION
+      },
     });
 
     if (!existingAppointment) {
-      throw new NotFoundException(`Appointment with ID ${id} not found`);
+      throw new NotFoundException(`Appointment with ID ${id} not found in this tenant`);
     }
 
     // Soft delete by setting status to cancelled
     const deletedAppointment = await this.prisma.appointment.update({
-      where: { id },
+      where: { 
+        id,
+        tenantId // TENANT ISOLATION
+      },
       data: { statusId: 'cancelled' },
       include: {
         status: true,

@@ -3,11 +3,13 @@ import { PassportStrategy } from '@nestjs/passport';
 import { ExtractJwt, Strategy } from 'passport-jwt';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../../prisma/prisma.service';
+import { TenantsService } from '../../tenants/tenants.service';
 
 export interface JwtPayload {
   sub: string;
   email: string;
   roleId: string;
+  tenantId?: string;
   iat?: number;
   exp?: number;
 }
@@ -17,6 +19,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
   constructor(
     private configService: ConfigService,
     private prisma: PrismaService,
+    private tenantsService: TenantsService,
   ) {
     super({
       jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
@@ -33,11 +36,29 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       },
       include: {
         role: true,
+        tenant: true,
       },
     });
 
     if (!user) {
       throw new UnauthorizedException('User not found or inactive');
+    }
+
+    // If JWT contains tenant ID, validate it matches user's tenant
+    if (payload.tenantId && user.tenantId !== payload.tenantId) {
+      throw new UnauthorizedException('Token tenant mismatch');
+    }
+
+    // Validate tenant is active if user belongs to one
+    if (user.tenantId) {
+      try {
+        const tenant = await this.tenantsService.findOne(user.tenantId);
+        if (!tenant.isActive) {
+          throw new UnauthorizedException('Tenant is not active');
+        }
+      } catch (error) {
+        throw new UnauthorizedException('Invalid tenant');
+      }
     }
 
     return {
@@ -46,6 +67,8 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       name: user.name,
       roleId: user.roleId,
       role: user.role,
+      tenantId: user.tenantId,
+      tenant: user.tenant,
     };
   }
 }

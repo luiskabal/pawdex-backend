@@ -11,6 +11,7 @@ import { FeatureFlagsGuard } from './guards/feature-flags.guard';
 import { PrismaModule } from '../prisma/prisma.module';
 import { PermissionsModule } from '../permissions/permissions.module';
 import { FeatureFlagsModule } from '../feature-flags/feature-flags.module';
+import { TenantsModule } from '../tenants/tenants.module';
 import { LoggerModule } from '../logger/logger.module';
 
 @Module({
@@ -28,6 +29,7 @@ import { LoggerModule } from '../logger/logger.module';
     }),
     PrismaModule,
     PermissionsModule,
+    TenantsModule,
     forwardRef(() => FeatureFlagsModule),
     LoggerModule,
     ConfigModule,

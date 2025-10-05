@@ -16,8 +16,25 @@ async function main() {
   await prisma.species.deleteMany();
   await prisma.appointmentStatus.deleteMany();
   await prisma.userRole.deleteMany();
+  await prisma.tenant.deleteMany();
 
   console.log('🗑️  Cleared existing data');
+
+  // Create default tenant
+  const defaultTenant = await prisma.tenant.create({
+    data: {
+      id: 'default-tenant',
+      name: 'PawDex Veterinary Clinic',
+      slug: 'default',
+      subdomain: 'default',
+      email: 'info@pawdex.com',
+      phone: '+1-555-0123',
+      address: '123 Main Street, Anytown, ST 12345',
+      settings: {},
+      isActive: true,
+    },
+  });
+  console.log(`🏢 Created default tenant: ${defaultTenant.name}`);
 
   // Seed User Roles with human-readable IDs
   const userRoles = await prisma.userRole.createMany({
@@ -221,14 +238,23 @@ async function main() {
   }
   console.log(`🏷️  Created ${totalBreeds} breeds`);
 
-  // Create sample users with human-readable role IDs and hashed passwords
+  // Create sample users with proper role connections and hashed passwords
   const defaultPassword = await bcrypt.hash('password123', 10);
+  
+  // Get role IDs
+  const adminRole = await prisma.userRole.findFirst({ where: { name: 'admin' } });
+  const vetRole = await prisma.userRole.findFirst({ where: { name: 'vet' } });
+  const receptionRole = await prisma.userRole.findFirst({ where: { name: 'receptionist' } });
+  const customerRole = await prisma.userRole.findFirst({ where: { name: 'customer' } });
+  
+  // Use the created tenant for users
   
   const adminUser = await prisma.user.create({
     data: {
       email: 'admin@pawdex.com',
       name: 'Admin User',
-      roleId: 'admin',
+      roleId: adminRole!.id,
+      tenantId: defaultTenant.id,
       password: defaultPassword,
     },
   });
@@ -237,7 +263,8 @@ async function main() {
     data: {
       email: 'dr.smith@pawdex.com',
       name: 'Dr. Sarah Smith',
-      roleId: 'veterinarian',
+      roleId: vetRole!.id,
+      tenantId: defaultTenant.id,
       password: defaultPassword,
     },
   });
@@ -246,7 +273,8 @@ async function main() {
     data: {
       email: 'dr.johnson@pawdex.com',
       name: 'Dr. Michael Johnson',
-      roleId: 'veterinarian',
+      roleId: vetRole!.id,
+      tenantId: defaultTenant.id,
       password: defaultPassword,
     },
   });
@@ -255,7 +283,8 @@ async function main() {
     data: {
       email: 'reception@pawdex.com',
       name: 'Jane Doe',
-      roleId: 'receptionist',
+      roleId: receptionRole!.id,
+      tenantId: defaultTenant.id,
       password: defaultPassword,
     },
   });
@@ -264,7 +293,8 @@ async function main() {
     data: {
       email: 'customer@pawdex.com',
       name: 'John Customer',
-      roleId: 'customer',
+      roleId: customerRole!.id,
+      tenantId: defaultTenant.id,
       password: defaultPassword,
     },
   });

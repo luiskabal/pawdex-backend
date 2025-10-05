@@ -8,30 +8,32 @@ datasource db {
 }
 
 // ============================================================================
-// MULTI-TENANT MODELS
+// TENANT MODEL - Core Multi-tenancy Entity
 // ============================================================================
-
 model Tenant {
-  id        String   @id @default(cuid())
-  name      String
-  subdomain String   @unique
-  slug      String   @unique
-  email     String?
-  phone     String?
-  address   String?
-  settings  Json     @default("{}")
-  isActive  Boolean  @default(true)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  // Relationships
+  id          String   @id @default(cuid())
+  name        String   // Clinic name
+  subdomain   String   @unique // clinic1.pawdex.com
+  slug        String   @unique // URL-friendly identifier
+  email       String?  // Primary contact email
+  phone       String?  // Primary contact phone
+  address     String?  // Clinic address
+  settings    Json     @default("{}") // Tenant-specific configuration
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  // Tenant-specific relationships
   users        User[]
   patients     Patient[]
   appointments Appointment[]
-
+  
   @@map("tenants")
 }
 
+// ============================================================================
+// GLOBAL/SHARED ENTITIES (No tenant isolation)
+// ============================================================================
 model Species {
   id       String    @id
   name     String    @unique
@@ -100,8 +102,12 @@ model RolePermission {
   @@map("role_permissions")
 }
 
+// ============================================================================
+// TENANT-SPECIFIC ENTITIES (With tenant isolation)
+// ============================================================================
 model Patient {
   id           String        @id @default(cuid())
+  tenantId     String        // TENANT ISOLATION
   createdAt    DateTime      @default(now())
   updatedAt    DateTime      @updatedAt
   name         String
@@ -109,16 +115,18 @@ model Patient {
   breedId      String?
   gender       String
   birthDate    DateTime
-  ownerId      String
-  tenantId     String
+  ownerId      String        // Reference to User (pet owner)
   tags         String        @default("[]")
   isActive     Boolean       @default(true)
+  
+  // Relationships
+  tenant       Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   appointments Appointment[]
   breed        Breed?        @relation(fields: [breedId], references: [id])
   species      Species       @relation(fields: [speciesId], references: [id])
-  owner        User          @relation("PatientOwner", fields: [ownerId], references: [id], onDelete: Restrict)
-  tenant       Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  owner        User          @relation("PatientOwner", fields: [ownerId], references: [id])
 
+  // Indexes for performance
   @@index([tenantId])
   @@index([tenantId, ownerId])
   @@map("patients")
@@ -126,22 +134,25 @@ model Patient {
 
 model Appointment {
   id            String            @id @default(cuid())
+  tenantId      String            // TENANT ISOLATION
   createdAt     DateTime          @default(now())
   updatedAt     DateTime          @updatedAt
   patientId     String
   vetId         String
-  tenantId      String
   date          DateTime
   duration      Int
   reason        String
   statusId      String
   notes         String?
   estimatedCost Float?
+  
+  // Relationships
+  tenant        Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   patient       Patient           @relation(fields: [patientId], references: [id], onDelete: Cascade)
   status        AppointmentStatus @relation(fields: [statusId], references: [id])
   vet           User              @relation("VetAppointments", fields: [vetId], references: [id])
-  tenant        Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
+  // Indexes for performance
   @@index([tenantId])
   @@index([tenantId, date])
   @@index([tenantId, vetId])
@@ -151,28 +162,32 @@ model Appointment {
 
 model User {
   id                    String        @id @default(cuid())
+  tenantId              String        // TENANT ISOLATION
   createdAt             DateTime      @default(now())
   updatedAt             DateTime      @updatedAt
-  email                 String
+  email                 String        
   name                  String
   password              String
   roleId                String
-  tenantId              String
   isActive              Boolean       @default(true)
   refreshToken          String?
   refreshTokenExpiresAt DateTime?
   
   // Relationships
-  role                  UserRole      @relation(fields: [roleId], references: [id])
   tenant                Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  patientsAsOwner       Patient[]     @relation("PatientOwner")
+  role                  UserRole      @relation(fields: [roleId], references: [id])
   vetAppointments       Appointment[] @relation("VetAppointments")
+  ownedPatients         Patient[]     @relation("PatientOwner")
 
+  // Unique constraints per tenant
   @@unique([tenantId, email])
   @@index([tenantId])
   @@map("users")
 }
 
+// ============================================================================
+// FEATURE FLAGS (Global - can be made tenant-specific later if needed)
+// ============================================================================
 model FeatureCategory {
   id           String        @id @default(cuid())
   name         String        @unique

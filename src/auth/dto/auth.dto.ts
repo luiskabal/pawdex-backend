@@ -17,6 +17,15 @@ export class LoginDto {
   @IsString()
   @MinLength(6)
   password: string;
+
+  @ApiProperty({
+    description: 'Tenant identifier (subdomain or ID)',
+    example: 'clinic-abc',
+    required: false,
+  })
+  @IsOptional()
+  @IsString()
+  tenant?: string;
 }
 
 export class RegisterDto {
@@ -49,6 +58,13 @@ export class RegisterDto {
   })
   @IsString()
   roleId: string;
+
+  @ApiProperty({
+    description: 'Tenant ID (required for new user registration)',
+    example: 'clinic-abc-tenant-id',
+  })
+  @IsString()
+  tenantId: string;
 }
 
 export class RefreshTokenDto {
@@ -82,5 +98,7 @@ export class AuthResponseDto {
     name: string;
     roleId: string;
     role?: any;
+    tenantId?: string;
+    tenant?: any;
   };
 }

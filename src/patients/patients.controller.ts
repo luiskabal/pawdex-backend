@@ -11,15 +11,17 @@ import {
   HttpCode,
   ValidationPipe,
   ParseIntPipe,
+  Req,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiParam, ApiQuery } from '@nestjs/swagger';
 import { PatientsService, CreatePatientDto, UpdatePatientDto, PaginationParams } from './patients.service';
 import { Patient } from './entities/patient.entity';
+import { RequireTenant } from '../common/decorators/require-tenant.decorator';
 import { Public } from '../auth/decorators/public.decorator';
 
 @ApiTags('patients')
 @Controller('patients')
-@Public()
+@RequireTenant()
 export class PatientsController {
   constructor(private readonly patientsService: PatientsService) {}
 
@@ -28,8 +30,11 @@ export class PatientsController {
   @ApiOperation({ summary: 'Create a new patient' })
   @ApiResponse({ status: 201, description: 'Patient created successfully' })
   @ApiResponse({ status: 400, description: 'Invalid input data' })
-  async create(@Body(ValidationPipe) createPatientDto: CreatePatientDto): Promise<Patient> {
-    return this.patientsService.create(createPatientDto);
+  async create(
+    @Body(ValidationPipe) createPatientDto: CreatePatientDto,
+    @Req() req: any
+  ): Promise<Patient> {
+    return this.patientsService.create(createPatientDto, req.tenantId);
   }
 
   @Get('species')
@@ -61,10 +66,11 @@ export class PatientsController {
   @ApiQuery({ name: 'limit', required: false, type: Number, description: 'Items per page (default: 10)' })
   @ApiQuery({ name: 'speciesId', required: false, type: String, description: 'Filter by species ID' })
   async findAll(
+    @Req() req: any,
     @Query('page') page?: string,
     @Query('limit') limit?: string,
     @Query('speciesId') speciesId?: string,
-    @Query('search') search?: string,
+    @Query('search') search?: string
   ) {
     const params: PaginationParams = {
       page: page ? parseInt(page, 10) : 1,
@@ -72,7 +78,7 @@ export class PatientsController {
       speciesId,
       search,
     };
-    return this.patientsService.findAll(params);
+    return this.patientsService.findAll(params, req.tenantId);
   }
 
   @Get('owner/:ownerId')
@@ -82,8 +88,9 @@ export class PatientsController {
   @ApiResponse({ status: 404, description: 'No patients found for this owner' })
   async findByOwnerId(
     @Param('ownerId') ownerId: string,
+    @Req() req: any
   ) {
-    return this.patientsService.findByOwnerId(ownerId);
+    return this.patientsService.findByOwnerId(ownerId, req.tenantId);
   }
 
   @Get(':id')
@@ -91,8 +98,11 @@ export class PatientsController {
   @ApiParam({ name: 'id', type: 'string', description: 'Patient ID' })
   @ApiResponse({ status: 200, description: 'Patient retrieved successfully' })
   @ApiResponse({ status: 404, description: 'Patient not found' })
-  async findOne(@Param('id') id: string): Promise<Patient> {
-    return this.patientsService.findOne(id);
+  async findOne(
+    @Param('id') id: string,
+    @Req() req: any
+  ): Promise<Patient> {
+    return this.patientsService.findOne(id, req.tenantId);
   }
 
   @Patch(':id')
@@ -104,8 +114,9 @@ export class PatientsController {
   async update(
     @Param('id') id: string,
     @Body(ValidationPipe) updatePatientDto: UpdatePatientDto,
+    @Req() req: any
   ): Promise<Patient> {
-    return this.patientsService.update(id, updatePatientDto);
+    return this.patientsService.update(id, updatePatientDto, req.tenantId);
   }
 
   @Delete(':id')
@@ -113,8 +124,11 @@ export class PatientsController {
   @ApiParam({ name: 'id', type: 'string', description: 'Patient ID' })
   @ApiResponse({ status: 200, description: 'Patient deleted successfully', type: Patient })
   @ApiResponse({ status: 404, description: 'Patient not found' })
-  async remove(@Param('id') id: string): Promise<Patient> {
-    return this.patientsService.remove(id);
+  async remove(
+    @Param('id') id: string,
+    @Req() req: any
+  ): Promise<Patient> {
+    return this.patientsService.remove(id, req.tenantId);
   }
 
   @Post(':id/tags')
@@ -126,8 +140,9 @@ export class PatientsController {
   async addTag(
     @Param('id') id: string,
     @Body('tag') tag: string,
+    @Req() req: any
   ): Promise<Patient> {
-    return this.patientsService.addTag(id, tag);
+    return this.patientsService.addTag(id, tag, req.tenantId);
   }
 
   @Delete(':id/tags/:tag')
@@ -139,7 +154,8 @@ export class PatientsController {
   async removeTag(
     @Param('id') id: string,
     @Param('tag') tag: string,
+    @Req() req: any
   ): Promise<Patient> {
-    return this.patientsService.removeTag(id, tag);
+    return this.patientsService.removeTag(id, tag, req.tenantId);
   }
 }

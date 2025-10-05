@@ -77,9 +77,10 @@ describe('PatientsController', () => {
 
       mockPatientsService.create.mockResolvedValue(mockPatient);
 
-      const result = await controller.create(createPatientDto);
+      const mockReq = { tenantId: 'tenant-1' };
+      const result = await controller.create(createPatientDto, mockReq);
 
-      expect(mockPatientsService.create).toHaveBeenCalledWith(createPatientDto);
+      expect(mockPatientsService.create).toHaveBeenCalledWith(createPatientDto, 'tenant-1');
       expect(result).toBe(mockPatient);
     });
 
@@ -95,7 +96,8 @@ describe('PatientsController', () => {
 
       mockPatientsService.create.mockRejectedValue(new BadRequestException('Name cannot be empty'));
 
-      await expect(controller.create(invalidPatientDto)).rejects.toThrow(BadRequestException);
+      const mockReq = { tenantId: 'tenant-1' };
+      await expect(controller.create(invalidPatientDto, mockReq)).rejects.toThrow(BadRequestException);
     });
   });
 
@@ -154,16 +156,18 @@ describe('PatientsController', () => {
     it('should return a patient by id', async () => {
       mockPatientsService.findOne.mockResolvedValue(mockPatient);
 
-      const result = await controller.findOne('patient-1');
+      const mockReq = { tenantId: 'tenant-1' };
+      const result = await controller.findOne('patient-1', mockReq);
 
-      expect(mockPatientsService.findOne).toHaveBeenCalledWith('patient-1');
+      expect(mockPatientsService.findOne).toHaveBeenCalledWith('patient-1', 'tenant-1');
       expect(result).toBe(mockPatient);
     });
 
     it('should handle patient not found', async () => {
       mockPatientsService.findOne.mockRejectedValue(new NotFoundException('Patient not found'));
 
-      await expect(controller.findOne('non-existent')).rejects.toThrow(NotFoundException);
+      const mockReq = { tenantId: 'tenant-1' };
+      await expect(controller.findOne('non-existent', mockReq)).rejects.toThrow(NotFoundException);
     });
   });
 
@@ -182,17 +186,19 @@ describe('PatientsController', () => {
 
       mockPatientsService.update.mockResolvedValue(updatedPatient);
 
-      const result = await controller.update('patient-1', updatePatientDto);
+      const mockReq = { tenantId: 'tenant-1' };
+      const result = await controller.update('patient-1', updatePatientDto, mockReq);
 
-      expect(mockPatientsService.update).toHaveBeenCalledWith('patient-1', updatePatientDto);
+      expect(mockPatientsService.update).toHaveBeenCalledWith('patient-1', updatePatientDto, 'tenant-1');
       expect(result).toBe(updatedPatient);
     });
 
     it('should handle patient not found during update', async () => {
       const updatePatientDto = { name: 'Updated Buddy' };
+      const mockReq = { tenantId: 'tenant-1' };
       mockPatientsService.update.mockRejectedValue(new NotFoundException('Patient not found'));
 
-      await expect(controller.update('non-existent', updatePatientDto)).rejects.toThrow(NotFoundException);
+      await expect(controller.update('non-existent', updatePatientDto, mockReq)).rejects.toThrow(NotFoundException);
     });
   });
 
@@ -206,16 +212,18 @@ describe('PatientsController', () => {
 
       mockPatientsService.remove.mockResolvedValue(deactivatedPatient);
 
-      const result = await controller.remove('patient-1');
+      const mockReq = { tenantId: 'tenant-1' };
+      const result = await controller.remove('patient-1', mockReq);
 
-      expect(mockPatientsService.remove).toHaveBeenCalledWith('patient-1');
+      expect(mockPatientsService.remove).toHaveBeenCalledWith('patient-1', 'tenant-1');
       expect(result).toBe(deactivatedPatient);
     });
 
     it('should handle patient not found during removal', async () => {
+      const mockReq = { tenantId: 'tenant-1' };
       mockPatientsService.remove.mockRejectedValue(new NotFoundException('Patient not found'));
 
-      await expect(controller.remove('non-existent')).rejects.toThrow(NotFoundException);
+      await expect(controller.remove('non-existent', mockReq)).rejects.toThrow(NotFoundException);
     });
   });
 
@@ -224,18 +232,20 @@ describe('PatientsController', () => {
       const ownerPatients = [mockPatient];
       mockPatientsService.findByOwnerId.mockResolvedValue(ownerPatients);
 
-      const result = await controller.findByOwnerId('owner-1');
+      const mockReq = { tenantId: 'tenant-1' };
+      const result = await controller.findByOwnerId('owner-1', mockReq);
 
-      expect(mockPatientsService.findByOwnerId).toHaveBeenCalledWith('owner-1');
+      expect(mockPatientsService.findByOwnerId).toHaveBeenCalledWith('owner-1', 'tenant-1');
       expect(result).toBe(ownerPatients);
     });
 
     it('should return empty array for owner with no patients', async () => {
       mockPatientsService.findByOwnerId.mockResolvedValue([]);
 
-      const result = await controller.findByOwnerId('owner-without-patients');
+      const mockReq = { tenantId: 'tenant-1' };
+      const result = await controller.findByOwnerId('owner-without-patients', mockReq);
 
-      expect(mockPatientsService.findByOwnerId).toHaveBeenCalledWith('owner-without-patients');
+      expect(mockPatientsService.findByOwnerId).toHaveBeenCalledWith('owner-without-patients', 'tenant-1');
       expect(result).toEqual([]);
     });
   });
@@ -252,17 +262,19 @@ describe('PatientsController', () => {
 
       mockPatientsService.addTag.mockResolvedValue(patientWithNewTag);
 
-      const result = await controller.addTag('patient-1', tag);
+      const mockReq = { tenantId: 'tenant-1' };
+      const result = await controller.addTag('patient-1', tag, mockReq);
 
-      expect(mockPatientsService.addTag).toHaveBeenCalledWith('patient-1', 'new-tag');
+      expect(mockPatientsService.addTag).toHaveBeenCalledWith('patient-1', 'new-tag', 'tenant-1');
       expect(result).toEqual(patientWithNewTag);
     });
 
     it('should handle patient not found when adding tag', async () => {
       const tag = 'new-tag';
+      const mockReq = { tenantId: 'tenant-1' };
       mockPatientsService.addTag.mockRejectedValue(new NotFoundException('Patient not found'));
 
-      await expect(controller.addTag('non-existent', tag)).rejects.toThrow(NotFoundException);
+      await expect(controller.addTag('non-existent', tag, mockReq)).rejects.toThrow(NotFoundException);
     });
   });
 
@@ -278,17 +290,19 @@ describe('PatientsController', () => {
 
       mockPatientsService.removeTag.mockResolvedValue(patientWithRemovedTag);
 
-      const result = await controller.removeTag('patient-1', tag);
+      const mockReq = { tenantId: 'tenant-1' };
+      const result = await controller.removeTag('patient-1', tag, mockReq);
 
-      expect(mockPatientsService.removeTag).toHaveBeenCalledWith('patient-1', 'friendly');
+      expect(mockPatientsService.removeTag).toHaveBeenCalledWith('patient-1', 'friendly', 'tenant-1');
       expect(result).toEqual(patientWithRemovedTag);
     });
 
     it('should handle patient not found when removing tag', async () => {
       const tag = 'friendly';
+      const mockReq = { tenantId: 'tenant-1' };
       mockPatientsService.removeTag.mockRejectedValue(new NotFoundException('Patient not found'));
 
-      await expect(controller.removeTag('non-existent', tag)).rejects.toThrow(NotFoundException);
+      await expect(controller.removeTag('non-existent', tag, mockReq)).rejects.toThrow(NotFoundException);
     });
   });
 
@@ -305,7 +319,8 @@ describe('PatientsController', () => {
 
       mockPatientsService.create.mockResolvedValue(mockPatient);
 
-      const result = await controller.create(createPatientDto);
+      const mockReq = { tenantId: 'tenant-1' };
+      const result = await controller.create(createPatientDto, mockReq);
       expect(result).toBe(mockPatient);
       // HTTP status 201 is handled by NestJS @Post() decorator
     });
@@ -313,24 +328,27 @@ describe('PatientsController', () => {
     it('should return 200 for successful retrieval', async () => {
       mockPatientsService.findOne.mockResolvedValue(mockPatient);
 
-      const result = await controller.findOne('patient-1');
+      const mockReq = { tenantId: 'tenant-1' };
+      const result = await controller.findOne('patient-1', mockReq);
       expect(result).toBe(mockPatient);
       // HTTP status 200 is handled by NestJS @Get() decorator
     });
 
     it('should return 200 for successful update', async () => {
       const updatePatientDto = { name: 'Updated Buddy' };
+      const mockReq = { tenantId: 'tenant-1' };
       mockPatientsService.update.mockResolvedValue(mockPatient);
 
-      const result = await controller.update('patient-1', updatePatientDto);
+      const result = await controller.update('patient-1', updatePatientDto, mockReq);
       expect(result).toBe(mockPatient);
       // HTTP status 200 is handled by NestJS @Patch() decorator
     });
 
     it('should return 200 for successful soft delete', async () => {
+      const mockReq = { tenantId: 'tenant-1' };
       mockPatientsService.remove.mockResolvedValue(mockPatient);
 
-      const result = await controller.remove('patient-1');
+      const result = await controller.remove('patient-1', mockReq);
       expect(result).toBe(mockPatient);
       // HTTP status 200 is handled by NestJS @Delete() decorator
     });
