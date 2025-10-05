@@ -16,6 +16,10 @@
       "dest": "api/health.ts"
     },
     {
+      "src": "/api/patients",
+      "dest": "api/patients.ts"
+    },
+    {
       "src": "/(.*)",
       "dest": "api/index.ts"
     }
