@@ -32,14 +32,30 @@ export class AppointmentsService {
       throw new BadRequestException('Duration must be positive');
     }
 
+    // Use the human-readable 'scheduled' status ID directly
+
     const appointmentData = await this.prisma.appointment.create({
       data: {
         ...createAppointmentDto,
-        status: 'scheduled',
+        statusId: 'scheduled',
+      },
+      include: {
+        status: true,
+        patient: {
+          include: {
+            species: true,
+            breed: true,
+          },
+        },
+        vet: {
+          include: {
+            role: true,
+          },
+        },
       },
     });
 
-    return new Appointment(appointmentData);
+    return new Appointment(this.mapToAppointmentData(appointmentData));
   }
 
   async findAll(params: PaginationParams): Promise<PaginatedResult<Appointment>> {
@@ -51,11 +67,25 @@ export class AppointmentsService {
         skip,
         take: limit,
         orderBy: { date: 'asc' },
+        include: {
+          status: true,
+          patient: {
+            include: {
+              species: true,
+              breed: true,
+            },
+          },
+          vet: {
+            include: {
+              role: true,
+            },
+          },
+        },
       }),
       this.prisma.appointment.count(),
     ]);
 
-    const appointmentEntities = appointments.map(appointment => new Appointment(appointment));
+    const appointmentEntities = appointments.map(appointment => new Appointment(this.mapToAppointmentData(appointment)));
 
     return {
       data: appointmentEntities,
@@ -69,31 +99,73 @@ export class AppointmentsService {
   async findOne(id: string): Promise<Appointment> {
     const appointment = await this.prisma.appointment.findUnique({
       where: { id },
+      include: {
+        status: true,
+        patient: {
+          include: {
+            species: true,
+            breed: true,
+          },
+        },
+        vet: {
+          include: {
+            role: true,
+          },
+        },
+      },
     });
 
     if (!appointment) {
       throw new NotFoundException(`Appointment with ID ${id} not found`);
     }
 
-    return new Appointment(appointment);
+    return new Appointment(this.mapToAppointmentData(appointment));
   }
 
   async findByPatient(patientId: string): Promise<Appointment[]> {
     const appointments = await this.prisma.appointment.findMany({
       where: { patientId },
       orderBy: { date: 'asc' },
+      include: {
+        status: true,
+        patient: {
+          include: {
+            species: true,
+            breed: true,
+          },
+        },
+        vet: {
+          include: {
+            role: true,
+          },
+        },
+      },
     });
 
-    return appointments.map(appointment => new Appointment(appointment));
+    return appointments.map(appointment => new Appointment(this.mapToAppointmentData(appointment)));
   }
 
   async findByVeterinarian(vetId: string): Promise<Appointment[]> {
     const appointments = await this.prisma.appointment.findMany({
       where: { vetId },
       orderBy: { date: 'asc' },
+      include: {
+        status: true,
+        patient: {
+          include: {
+            species: true,
+            breed: true,
+          },
+        },
+        vet: {
+          include: {
+            role: true,
+          },
+        },
+      },
     });
 
-    return appointments.map(appointment => new Appointment(appointment));
+    return appointments.map(appointment => new Appointment(this.mapToAppointmentData(appointment)));
   }
 
   async findByDateRange(startDate: Date, endDate: Date): Promise<Appointment[]> {
@@ -109,14 +181,31 @@ export class AppointmentsService {
         },
       },
       orderBy: { date: 'asc' },
+      include: {
+        status: true,
+        patient: {
+          include: {
+            species: true,
+            breed: true,
+          },
+        },
+        vet: {
+          include: {
+            role: true,
+          },
+        },
+      },
     });
 
-    return appointments.map(appointment => new Appointment(appointment));
+    return appointments.map(appointment => new Appointment(this.mapToAppointmentData(appointment)));
   }
 
   async update(id: string, updateAppointmentDto: UpdateAppointmentDto): Promise<Appointment> {
     const existingAppointment = await this.prisma.appointment.findUnique({
       where: { id },
+      include: {
+        status: true,
+      },
     });
 
     if (!existingAppointment) {
@@ -124,7 +213,7 @@ export class AppointmentsService {
     }
 
     // Check if appointment is completed and cannot be updated
-    if (existingAppointment.status === 'completed') {
+    if (existingAppointment.status?.name === 'completed') {
       throw new BadRequestException('Cannot update completed appointment');
     }
 
@@ -133,12 +222,35 @@ export class AppointmentsService {
       throw new BadRequestException('Scheduled date cannot be in the past');
     }
 
+    // Exclude patientId, vetId, and status from updates as they need special handling
+    const { patientId, vetId, status, ...updateData } = updateAppointmentDto;
+    
+    // If status is provided, convert it to statusId
+    const finalUpdateData: any = { ...updateData };
+    if (status) {
+      finalUpdateData.statusId = status;
+    }
+    
     const updatedAppointment = await this.prisma.appointment.update({
       where: { id },
-      data: updateAppointmentDto,
+      data: finalUpdateData,
+      include: {
+        status: true,
+        patient: {
+          include: {
+            species: true,
+            breed: true,
+          },
+        },
+        vet: {
+          include: {
+            role: true,
+          },
+        },
+      },
     });
 
-    return new Appointment(updatedAppointment);
+    return new Appointment(this.mapToAppointmentData(updatedAppointment));
   }
 
   async updateStatus(
@@ -147,14 +259,20 @@ export class AppointmentsService {
   ): Promise<Appointment> {
     const existingAppointment = await this.prisma.appointment.findUnique({
       where: { id },
+      include: {
+        status: true,
+      },
     });
 
     if (!existingAppointment) {
       throw new NotFoundException(`Appointment with ID ${id} not found`);
     }
 
+    // Convert status name to human-readable ID format
+    const statusId = status.replace('-', '_');
+
     // Validate status transitions
-    const appointment = new Appointment(existingAppointment);
+    const appointment = new Appointment(this.mapToAppointmentData(existingAppointment));
     try {
       appointment.updateStatus(status as any);
     } catch (error) {
@@ -163,33 +281,67 @@ export class AppointmentsService {
 
     const updatedAppointment = await this.prisma.appointment.update({
       where: { id },
-      data: { status },
+      data: { statusId },
+      include: {
+        status: true,
+        patient: {
+          include: {
+            species: true,
+            breed: true,
+          },
+        },
+        vet: {
+          include: {
+            role: true,
+          },
+        },
+      },
     });
 
-    return new Appointment(updatedAppointment);
+    return new Appointment(this.mapToAppointmentData(updatedAppointment));
   }
 
   async cancel(id: string): Promise<Appointment> {
     const existingAppointment = await this.prisma.appointment.findUnique({
       where: { id },
+      include: {
+        status: true,
+      },
     });
 
     if (!existingAppointment) {
       throw new NotFoundException(`Appointment with ID ${id} not found`);
     }
 
-    // Check if appointment can be cancelled
-    const appointment = new Appointment(existingAppointment);
-    if (!appointment.canBeCancelled()) {
-      throw new BadRequestException('Appointment cannot be cancelled');
+    // Check if appointment can be cancelled - use statusId directly
+    console.log('Appointment statusId:', existingAppointment.statusId);
+    console.log('Can cancel scheduled?', existingAppointment.statusId === 'scheduled');
+    console.log('Can cancel confirmed?', existingAppointment.statusId === 'confirmed');
+    
+    if (existingAppointment.statusId !== 'scheduled' && existingAppointment.statusId !== 'confirmed') {
+      throw new BadRequestException(`Appointment cannot be cancelled. Current status: ${existingAppointment.statusId}`);
     }
 
     const cancelledAppointment = await this.prisma.appointment.update({
       where: { id },
-      data: { status: 'cancelled' },
+      data: { statusId: 'cancelled' },
+      include: {
+        status: true,
+        patient: {
+          include: {
+            species: true,
+            breed: true,
+          },
+        },
+        vet: {
+          include: {
+            role: true,
+          },
+        },
+      },
     });
 
-    return new Appointment(cancelledAppointment);
+    return new Appointment(this.mapToAppointmentData(cancelledAppointment));
   }
 
   async remove(id: string): Promise<Appointment> {
@@ -204,9 +356,28 @@ export class AppointmentsService {
     // Soft delete by setting status to cancelled
     const deletedAppointment = await this.prisma.appointment.update({
       where: { id },
-      data: { status: 'cancelled' },
+      data: { statusId: 'cancelled' },
+      include: {
+        status: true,
+      },
     });
 
-    return new Appointment(deletedAppointment);
+    return new Appointment(this.mapToAppointmentData(deletedAppointment));
+  }
+
+  private mapToAppointmentData(prismaAppointment: any): any {
+    return {
+      id: prismaAppointment.id,
+      patientId: prismaAppointment.patientId,
+      vetId: prismaAppointment.vetId,
+      date: prismaAppointment.date,
+      duration: prismaAppointment.duration,
+      reason: prismaAppointment.reason,
+      status: prismaAppointment.status?.name || prismaAppointment.statusId,
+      notes: prismaAppointment.notes,
+      estimatedCost: prismaAppointment.estimatedCost,
+      createdAt: prismaAppointment.createdAt,
+      updatedAt: prismaAppointment.updatedAt,
+    };
   }
 }

@@ -67,8 +67,8 @@ describe('PatientsController', () => {
     it('should create a new patient', async () => {
       const createPatientDto = {
         name: 'Buddy',
-        species: 'dog' as Species,
-        breed: 'Golden Retriever',
+        speciesId: 'dog',
+        breedId: 'dog-golden-retriever',
         gender: 'male' as Gender,
         birthDate: new Date('2020-01-01'),
         ownerId: 'owner-1',
@@ -86,8 +86,8 @@ describe('PatientsController', () => {
     it('should handle validation errors', async () => {
       const invalidPatientDto = {
         name: '',
-        species: 'dog' as Species,
-        breed: 'Golden Retriever',
+        speciesId: 'dog',
+        breedId: 'dog-golden-retriever',
         gender: 'male' as Gender,
         birthDate: new Date('2020-01-01'),
         ownerId: 'owner-1',
@@ -104,7 +104,7 @@ describe('PatientsController', () => {
       const query = { page: 1, limit: 10 };
       mockPatientsService.findAll.mockResolvedValue(mockPaginatedResponse);
 
-      const result = await controller.findAll(query);
+      const result = await controller.findAll('1', '10');
 
       expect(mockPatientsService.findAll).toHaveBeenCalledWith({
         page: 1,
@@ -117,17 +117,17 @@ describe('PatientsController', () => {
       const query = {
         page: 2,
         limit: 5,
-        species: 'dog' as Species,
+        speciesId: 'dog',
         search: 'Buddy',
       };
       mockPatientsService.findAll.mockResolvedValue(mockPaginatedResponse);
 
-      const result = await controller.findAll(query);
+      const result = await controller.findAll('2', '5', 'dog', 'Buddy');
 
       expect(mockPatientsService.findAll).toHaveBeenCalledWith({
           page: 2,
           limit: 5,
-          species: 'dog' as Species,
+          speciesId: 'dog',
           search: 'Buddy',
         });
       expect(result).toBe(mockPaginatedResponse);
@@ -140,7 +140,7 @@ describe('PatientsController', () => {
       };
       mockPatientsService.findAll.mockResolvedValue(mockPaginatedResponse);
 
-      const result = await controller.findAll(query);
+      const result = await controller.findAll('1', '10');
 
       expect(mockPatientsService.findAll).toHaveBeenCalledWith({
         page: 1,
@@ -296,8 +296,8 @@ describe('PatientsController', () => {
     it('should return 201 for successful creation', async () => {
       const createPatientDto = {
         name: 'Buddy',
-        species: 'dog' as Species,
-        breed: 'Golden Retriever',
+        speciesId: 'dog',
+        breedId: 'dog-golden-retriever',
         gender: 'male' as Gender,
         birthDate: new Date('2020-01-01'),
         ownerId: 'owner-1',

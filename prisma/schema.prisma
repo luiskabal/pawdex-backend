@@ -7,48 +7,167 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+model Species {
+  id       String    @id
+  name     String    @unique
+  isActive Boolean   @default(true)
+  breeds   Breed[]
+  patients Patient[]
+
+  @@map("species")
+}
+
+model Breed {
+  id        String    @id
+  name      String
+  speciesId String
+  isActive  Boolean   @default(true)
+  species   Species   @relation(fields: [speciesId], references: [id])
+  patients  Patient[]
+
+  @@unique([name, speciesId])
+  @@map("breeds")
+}
+
+model AppointmentStatus {
+  id           String        @id
+  name         String        @unique
+  description  String?
+  isActive     Boolean       @default(true)
+  appointments Appointment[]
+
+  @@map("appointment_statuses")
+}
+
+model UserRole {
+  id           String            @id
+  name         String            @unique
+  description  String?
+  isActive     Boolean           @default(true)
+  permissions  RolePermission[]
+  users        User[]
+  featureFlags RoleFeatureFlag[]
+
+  @@map("user_roles")
+}
+
+model Permission {
+  id          String           @id @default(cuid())
+  name        String           @unique
+  description String?
+  isActive    Boolean          @default(true)
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+  roles       RolePermission[]
+
+  @@map("permissions")
+}
+
+model RolePermission {
+  id           String     @id @default(cuid())
+  roleId       String
+  permissionId String
+  createdAt    DateTime   @default(now())
+  permission   Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+  role         UserRole   @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  @@unique([roleId, permissionId])
+  @@map("role_permissions")
+}
+
 model Patient {
   id           String        @id @default(cuid())
   createdAt    DateTime      @default(now())
   updatedAt    DateTime      @updatedAt
   name         String
-  species      String
-  breed        String
+  speciesId    String
+  breedId      String?
   gender       String
   birthDate    DateTime
   ownerId      String
   tags         String        @default("[]")
   isActive     Boolean       @default(true)
   appointments Appointment[]
+  breed        Breed?        @relation(fields: [breedId], references: [id])
+  species      Species       @relation(fields: [speciesId], references: [id])
 
   @@map("patients")
 }
 
 model Appointment {
-  id            String   @id @default(cuid())
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  id            String            @id @default(cuid())
+  createdAt     DateTime          @default(now())
+  updatedAt     DateTime          @updatedAt
   patientId     String
   vetId         String
   date          DateTime
   duration      Int
   reason        String
-  status        String
+  statusId      String
   notes         String?
   estimatedCost Float?
-  patient       Patient  @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  patient       Patient           @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  status        AppointmentStatus @relation(fields: [statusId], references: [id])
+  vet           User              @relation("VetAppointments", fields: [vetId], references: [id])
 
   @@map("appointments")
 }
 
 model User {
-  id        String   @id @default(cuid())
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  email     String   @unique
-  name      String
-  role      String
-  isActive  Boolean  @default(true)
+  id                    String        @id @default(cuid())
+  createdAt             DateTime      @default(now())
+  updatedAt             DateTime      @updatedAt
+  email                 String        @unique
+  name                  String
+  password              String
+  roleId                String
+  isActive              Boolean       @default(true)
+  refreshToken          String?
+  refreshTokenExpiresAt DateTime?
+  vetAppointments       Appointment[] @relation("VetAppointments")
+  role                  UserRole      @relation(fields: [roleId], references: [id])
 
   @@map("users")
+}
+
+model FeatureCategory {
+  id           String        @id @default(cuid())
+  name         String        @unique
+  description  String?
+  isActive     Boolean       @default(true)
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  featureFlags FeatureFlag[]
+
+  @@map("feature_categories")
+}
+
+model FeatureFlag {
+  id          String            @id @default(cuid())
+  key         String            @unique
+  name        String
+  description String?
+  isActive    Boolean           @default(true)
+  isGlobal    Boolean           @default(false)
+  categoryId  String?
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+  category    FeatureCategory?  @relation(fields: [categoryId], references: [id])
+  roleFlags   RoleFeatureFlag[]
+
+  @@map("feature_flags")
+}
+
+model RoleFeatureFlag {
+  id            String      @id @default(cuid())
+  roleId        String
+  featureFlagId String
+  isEnabled     Boolean     @default(true)
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+  role          UserRole    @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  featureFlag   FeatureFlag @relation(fields: [featureFlagId], references: [id], onDelete: Cascade)
+
+  @@unique([roleId, featureFlagId])
+  @@map("role_feature_flags")
 }

@@ -22,8 +22,8 @@ describe('PatientsService', () => {
   const mockPatientData = {
     id: 'patient-1',
     name: 'Buddy',
-    species: 'dog',
-    breed: 'Golden Retriever',
+    speciesId: 'dog',
+    breedId: 'dog-golden-retriever',
     gender: 'male',
     birthDate: new Date('2020-01-01'),
     ownerId: 'owner-1',
@@ -59,8 +59,8 @@ describe('PatientsService', () => {
     it('should create a new patient', async () => {
       const createPatientDto = {
         name: 'Buddy',
-        species: 'dog' as Species,
-        breed: 'Golden Retriever',
+        speciesId: 'dog',
+        breedId: 'dog-golden-retriever',
         gender: 'male' as Gender,
         birthDate: new Date('2020-01-01'),
         ownerId: 'owner-1',
@@ -74,12 +74,16 @@ describe('PatientsService', () => {
       expect(mockPrismaService.patient.create).toHaveBeenCalledWith({
         data: {
           name: createPatientDto.name,
-          species: createPatientDto.species,
-          breed: createPatientDto.breed,
+          speciesId: createPatientDto.speciesId,
+          breedId: createPatientDto.breedId,
           gender: createPatientDto.gender,
           birthDate: createPatientDto.birthDate,
           ownerId: createPatientDto.ownerId,
           tags: JSON.stringify(createPatientDto.tags),
+        },
+        include: {
+          species: true,
+          breed: true,
         },
       });
       expect(result).toBeInstanceOf(Patient);
@@ -89,8 +93,8 @@ describe('PatientsService', () => {
     it('should throw BadRequestException for invalid data', async () => {
       const invalidPatientDto = {
         name: '',
-        species: 'dog' as Species,
-        breed: 'Golden Retriever',
+        speciesId: 'dog',
+        breedId: 'dog-golden-retriever',
         gender: 'male' as Gender,
         birthDate: new Date('2020-01-01'),
         ownerId: 'owner-1',
@@ -116,6 +120,10 @@ describe('PatientsService', () => {
         take: 10,
         where: { isActive: true },
         orderBy: { createdAt: 'desc' },
+        include: {
+          species: true,
+          breed: true,
+        },
       });
       expect(mockPrismaService.patient.count).toHaveBeenCalledWith({
         where: { isActive: true },
@@ -129,7 +137,7 @@ describe('PatientsService', () => {
     });
 
     it('should filter by species when provided', async () => {
-      const paginationParams = { page: 1, limit: 10, species: 'dog' as Species };
+      const paginationParams = { page: 1, limit: 10, speciesId: 'dog' };
       const mockPatients = [mockPatientData];
       const mockCount = 1;
 
@@ -141,8 +149,12 @@ describe('PatientsService', () => {
       expect(mockPrismaService.patient.findMany).toHaveBeenCalledWith({
         skip: 0,
         take: 10,
-        where: { isActive: true, species: 'dog' },
+        where: { isActive: true, speciesId: 'dog' },
         orderBy: { createdAt: 'desc' },
+        include: {
+          species: true,
+          breed: true,
+        },
       });
     });
 
@@ -164,6 +176,10 @@ describe('PatientsService', () => {
           name: { contains: 'Buddy', mode: 'insensitive' }
         },
         orderBy: { createdAt: 'desc' },
+        include: {
+          species: true,
+          breed: true,
+        },
       });
     });
   });
@@ -176,6 +192,10 @@ describe('PatientsService', () => {
 
       expect(mockPrismaService.patient.findUnique).toHaveBeenCalledWith({
         where: { id: 'patient-1' },
+        include: {
+          species: true,
+          breed: true,
+        },
       });
       expect(result).toBeInstanceOf(Patient);
       expect(result.id).toBe('patient-1');
@@ -212,6 +232,10 @@ describe('PatientsService', () => {
       expect(mockPrismaService.patient.update).toHaveBeenCalledWith({
         where: { id: 'patient-1' },
         data: updatePatientDto,
+        include: {
+          species: true,
+          breed: true,
+        },
       });
       expect(result).toBeInstanceOf(Patient);
       expect(result.name).toBe('Updated Buddy');
@@ -264,6 +288,10 @@ describe('PatientsService', () => {
       expect(mockPrismaService.patient.update).toHaveBeenCalledWith({
         where: { id: 'patient-1' },
         data: { isActive: false },
+        include: {
+          species: true,
+          breed: true,
+        },
       });
       expect(result).toBeInstanceOf(Patient);
       expect(result.isActive).toBe(false);
@@ -286,6 +314,10 @@ describe('PatientsService', () => {
       expect(mockPrismaService.patient.findMany).toHaveBeenCalledWith({
         where: { ownerId: 'owner-1', isActive: true },
         orderBy: { createdAt: 'desc' },
+        include: {
+          species: true,
+          breed: true,
+        },
       });
       expect(result).toHaveLength(1);
       expect(result[0]).toBeInstanceOf(Patient);

@@ -10,13 +10,16 @@ import {
   HttpStatus,
   HttpCode,
   ValidationPipe,
+  ParseIntPipe,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiParam, ApiQuery } from '@nestjs/swagger';
 import { PatientsService, CreatePatientDto, UpdatePatientDto, PaginationParams } from './patients.service';
 import { Patient } from './entities/patient.entity';
+import { Public } from '../auth/decorators/public.decorator';
 
 @ApiTags('patients')
 @Controller('patients')
+@Public()
 export class PatientsController {
   constructor(private readonly patientsService: PatientsService) {}
 
@@ -29,12 +32,46 @@ export class PatientsController {
     return this.patientsService.create(createPatientDto);
   }
 
+  @Get('species')
+  @ApiOperation({ summary: 'Get all available species' })
+  @ApiResponse({ status: 200, description: 'Species retrieved successfully' })
+  async getSpecies() {
+    return this.patientsService.getSpecies();
+  }
+
+  @Get('breeds')
+  @ApiOperation({ summary: 'Get all breeds' })
+  @ApiResponse({ status: 200, description: 'Breeds retrieved successfully' })
+  async getAllBreeds() {
+    return this.patientsService.getAllBreeds();
+  }
+
+  @Get('species/:speciesId/breeds')
+  @ApiOperation({ summary: 'Get breeds by species' })
+  @ApiParam({ name: 'speciesId', type: 'string', description: 'Species ID' })
+  @ApiResponse({ status: 200, description: 'Breeds retrieved successfully' })
+  async getBreedsBySpecies(@Param('speciesId') speciesId: string) {
+    return this.patientsService.getBreedsBySpecies(speciesId);
+  }
+
   @Get()
   @ApiOperation({ summary: 'Get all patients with pagination' })
   @ApiResponse({ status: 200, description: 'Patients retrieved successfully' })
   @ApiQuery({ name: 'page', required: false, type: Number, description: 'Page number (default: 1)' })
   @ApiQuery({ name: 'limit', required: false, type: Number, description: 'Items per page (default: 10)' })
-  async findAll(@Query() params: PaginationParams) {
+  @ApiQuery({ name: 'speciesId', required: false, type: String, description: 'Filter by species ID' })
+  async findAll(
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
+    @Query('speciesId') speciesId?: string,
+    @Query('search') search?: string,
+  ) {
+    const params: PaginationParams = {
+      page: page ? parseInt(page, 10) : 1,
+      limit: limit ? parseInt(limit, 10) : 10,
+      speciesId,
+      search,
+    };
     return this.patientsService.findAll(params);
   }
 

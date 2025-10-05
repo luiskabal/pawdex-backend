@@ -25,14 +25,39 @@ describe('AppointmentsService', () => {
     id: '1',
     patientId: 'patient-1',
     vetId: 'vet-1',
+    statusId: 'scheduled',
     date: new Date(Date.now() + 24 * 60 * 60 * 1000), // Tomorrow
     duration: 30,
     reason: 'checkup' as const,
-    status: 'scheduled' as const,
     notes: 'Regular checkup',
     estimatedCost: 150.00,
     createdAt: new Date('2024-01-01T00:00:00Z'),
     updatedAt: new Date('2024-01-01T00:00:00Z'),
+    status: {
+      id: 'scheduled',
+      name: 'Scheduled',
+      description: 'Appointment is scheduled',
+    },
+    patient: {
+      id: 'patient-1',
+      name: 'Buddy',
+      species: {
+        id: 'dog',
+        name: 'Dog',
+      },
+      breed: {
+        id: 'golden-retriever',
+        name: 'Golden Retriever',
+      },
+    },
+    vet: {
+      id: 'vet-1',
+      name: 'Dr. Smith',
+      role: {
+        id: 'veterinarian',
+        name: 'Veterinarian',
+      },
+    },
   };
 
   const createAppointmentDto: CreateAppointmentDto = {
@@ -81,7 +106,21 @@ describe('AppointmentsService', () => {
       expect(mockPrismaService.appointment.create).toHaveBeenCalledWith({
         data: {
           ...createAppointmentDto,
-          status: 'scheduled',
+          statusId: 'scheduled',
+        },
+        include: {
+          status: true,
+          patient: {
+            include: {
+              species: true,
+              breed: true,
+            },
+          },
+          vet: {
+            include: {
+              role: true,
+            },
+          },
         },
       });
       expect(result).toBeInstanceOf(Appointment);
@@ -122,6 +161,20 @@ describe('AppointmentsService', () => {
         skip: 0,
         take: 10,
         orderBy: { date: 'asc' },
+        include: {
+          status: true,
+          patient: {
+            include: {
+              species: true,
+              breed: true,
+            },
+          },
+          vet: {
+            include: {
+              role: true,
+            },
+          },
+        },
       });
       expect(mockPrismaService.appointment.count).toHaveBeenCalled();
       expect(result.data).toHaveLength(1);
@@ -151,6 +204,20 @@ describe('AppointmentsService', () => {
         skip: 10, // (3-1) * 5
         take: 5,
         orderBy: { date: 'asc' },
+        include: {
+          status: true,
+          patient: {
+            include: {
+              species: true,
+              breed: true,
+            },
+          },
+          vet: {
+            include: {
+              role: true,
+            },
+          },
+        },
       });
     });
   });
@@ -163,6 +230,20 @@ describe('AppointmentsService', () => {
 
       expect(mockPrismaService.appointment.findUnique).toHaveBeenCalledWith({
         where: { id: '1' },
+        include: {
+          status: true,
+          patient: {
+            include: {
+              species: true,
+              breed: true,
+            },
+          },
+          vet: {
+            include: {
+              role: true,
+            },
+          },
+        },
       });
       expect(result).toBeInstanceOf(Appointment);
       expect(result.id).toBe('1');
@@ -174,6 +255,20 @@ describe('AppointmentsService', () => {
       await expect(service.findOne('999')).rejects.toThrow(NotFoundException);
       expect(mockPrismaService.appointment.findUnique).toHaveBeenCalledWith({
         where: { id: '999' },
+        include: {
+          status: true,
+          patient: {
+            include: {
+              species: true,
+              breed: true,
+            },
+          },
+          vet: {
+            include: {
+              role: true,
+            },
+          },
+        },
       });
     });
   });
@@ -188,6 +283,20 @@ describe('AppointmentsService', () => {
       expect(mockPrismaService.appointment.findMany).toHaveBeenCalledWith({
         where: { patientId: 'patient-1' },
         orderBy: { date: 'asc' },
+        include: {
+          status: true,
+          patient: {
+            include: {
+              species: true,
+              breed: true,
+            },
+          },
+          vet: {
+            include: {
+              role: true,
+            },
+          },
+        },
       });
       expect(result).toHaveLength(1);
       expect(result[0]).toBeInstanceOf(Appointment);
@@ -213,6 +322,20 @@ describe('AppointmentsService', () => {
       expect(mockPrismaService.appointment.findMany).toHaveBeenCalledWith({
         where: { vetId: 'vet-1' },
         orderBy: { date: 'asc' },
+        include: {
+          status: true,
+          patient: {
+            include: {
+              species: true,
+              breed: true,
+            },
+          },
+          vet: {
+            include: {
+              role: true,
+            },
+          },
+        },
       });
       expect(result).toHaveLength(1);
       expect(result[0]).toBeInstanceOf(Appointment);
@@ -245,6 +368,20 @@ describe('AppointmentsService', () => {
           },
         },
         orderBy: { date: 'asc' },
+        include: {
+          status: true,
+          patient: {
+            include: {
+              species: true,
+              breed: true,
+            },
+          },
+          vet: {
+            include: {
+              role: true,
+            },
+          },
+        },
       });
       expect(result).toHaveLength(1);
       expect(result[0]).toBeInstanceOf(Appointment);
@@ -274,10 +411,31 @@ describe('AppointmentsService', () => {
 
       expect(mockPrismaService.appointment.findUnique).toHaveBeenCalledWith({
         where: { id: '1' },
+        include: {
+          status: true,
+        },
       });
       expect(mockPrismaService.appointment.update).toHaveBeenCalledWith({
         where: { id: '1' },
-        data: mockUpdateAppointmentDto,
+        data: {
+          date: mockUpdateAppointmentDto.date,
+          duration: mockUpdateAppointmentDto.duration,
+          notes: mockUpdateAppointmentDto.notes,
+        },
+        include: {
+          status: true,
+          patient: {
+            include: {
+              species: true,
+              breed: true,
+            },
+          },
+          vet: {
+            include: {
+              role: true,
+            },
+          },
+        },
       });
       expect(result).toBeInstanceOf(Appointment);
       expect(result.duration).toBe(45);
@@ -304,7 +462,12 @@ describe('AppointmentsService', () => {
     it('should throw BadRequestException when updating completed appointment', async () => {
       const completedAppointment = {
         ...mockAppointmentData,
-        status: 'completed' as const,
+        statusId: 'completed',
+        status: {
+          id: 'completed',
+          name: 'completed',
+          description: 'Appointment is completed',
+        },
       };
       mockPrismaService.appointment.findUnique.mockResolvedValue(completedAppointment);
 
@@ -317,7 +480,12 @@ describe('AppointmentsService', () => {
     it('should update appointment status', async () => {
       const updatedAppointmentData = {
         ...mockAppointmentData,
-        status: 'completed' as const,
+        statusId: 'completed',
+        status: {
+          id: 'completed',
+          name: 'Completed',
+          description: 'Appointment is completed',
+        },
         updatedAt: new Date(),
       };
       
@@ -328,13 +496,30 @@ describe('AppointmentsService', () => {
 
       expect(mockPrismaService.appointment.findUnique).toHaveBeenCalledWith({
         where: { id: '1' },
+        include: {
+          status: true,
+        },
       });
       expect(mockPrismaService.appointment.update).toHaveBeenCalledWith({
         where: { id: '1' },
-        data: { status: 'completed' },
+        data: { statusId: 'completed' },
+        include: {
+          status: true,
+          patient: {
+            include: {
+              species: true,
+              breed: true,
+            },
+          },
+          vet: {
+            include: {
+              role: true,
+            },
+          },
+        },
       });
       expect(result).toBeInstanceOf(Appointment);
-      expect(result.status).toBe('completed');
+      expect(result.status).toBe('Completed');
     });
 
     it('should throw NotFoundException when appointment not found', async () => {
@@ -347,7 +532,12 @@ describe('AppointmentsService', () => {
     it('should throw BadRequestException for invalid status transition', async () => {
       const completedAppointment = {
         ...mockAppointmentData,
-        status: 'completed' as const,
+        statusId: 'completed',
+        status: {
+          id: 'completed',
+          name: 'completed',
+          description: 'Appointment is completed',
+        },
       };
       mockPrismaService.appointment.findUnique.mockResolvedValue(completedAppointment);
 
@@ -360,7 +550,12 @@ describe('AppointmentsService', () => {
     it('should cancel an appointment', async () => {
       const cancelledAppointmentData = {
         ...mockAppointmentData,
-        status: 'cancelled' as const,
+        statusId: 'cancelled',
+        status: {
+          id: 'cancelled',
+          name: 'Cancelled',
+          description: 'Appointment is cancelled',
+        },
         updatedAt: new Date(),
       };
       
@@ -371,13 +566,30 @@ describe('AppointmentsService', () => {
 
       expect(mockPrismaService.appointment.findUnique).toHaveBeenCalledWith({
         where: { id: '1' },
+        include: {
+          status: true,
+        },
       });
       expect(mockPrismaService.appointment.update).toHaveBeenCalledWith({
         where: { id: '1' },
-        data: { status: 'cancelled' },
+        data: { statusId: 'cancelled' },
+        include: {
+          status: true,
+          patient: {
+            include: {
+              species: true,
+              breed: true,
+            },
+          },
+          vet: {
+            include: {
+              role: true,
+            },
+          },
+        },
       });
       expect(result).toBeInstanceOf(Appointment);
-      expect(result.status).toBe('cancelled');
+      expect(result.status).toBe('Cancelled');
     });
 
     it('should throw NotFoundException when appointment not found', async () => {
@@ -390,7 +602,12 @@ describe('AppointmentsService', () => {
     it('should throw BadRequestException when appointment cannot be cancelled', async () => {
       const completedAppointment = {
         ...mockAppointmentData,
-        status: 'completed' as const,
+        statusId: 'completed',
+        status: {
+          id: 'completed',
+          name: 'Completed',
+          description: 'Appointment is completed',
+        },
       };
       mockPrismaService.appointment.findUnique.mockResolvedValue(completedAppointment);
 
@@ -403,7 +620,12 @@ describe('AppointmentsService', () => {
     it('should soft delete an appointment', async () => {
       const deletedAppointmentData = {
         ...mockAppointmentData,
-        status: 'cancelled' as const,
+        statusId: 'cancelled',
+        status: {
+          id: 'cancelled',
+          name: 'Cancelled',
+          description: 'Appointment is cancelled',
+        },
         updatedAt: new Date(),
       };
       
@@ -417,10 +639,13 @@ describe('AppointmentsService', () => {
       });
       expect(mockPrismaService.appointment.update).toHaveBeenCalledWith({
         where: { id: '1' },
-        data: { status: 'cancelled' },
+        data: { statusId: 'cancelled' },
+        include: {
+          status: true,
+        },
       });
       expect(result).toBeInstanceOf(Appointment);
-      expect(result.status).toBe('cancelled');
+      expect(result.status).toBe('Cancelled');
     });
 
     it('should throw NotFoundException when appointment not found', async () => {

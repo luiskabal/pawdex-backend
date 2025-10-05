@@ -15,9 +15,11 @@ import { AppointmentsService } from './appointments.service';
 import { CreateAppointmentDto } from './dto/create-appointment.dto';
 import { UpdateAppointmentDto } from './dto/update-appointment.dto';
 import { Appointment } from './entities/appointment.entity';
+import { Public } from '../auth/decorators/public.decorator';
 
 @ApiTags('appointments')
 @Controller('appointments')
+@Public()
 export class AppointmentsController {
   constructor(private readonly appointmentsService: AppointmentsService) {}
 
