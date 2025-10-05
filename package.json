@@ -39,6 +39,7 @@
     "@nestjs/swagger": "^7.1.0",
     "@prisma/client": "^5.0.0",
     "@types/pg": "^8.15.5",
+    "@vercel/node": "^5.3.24",
     "axios": "^1.12.2",
     "bcrypt": "^6.0.0",
     "class-transformer": "^0.5.1",
