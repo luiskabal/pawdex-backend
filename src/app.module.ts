@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { APP_INTERCEPTOR, APP_FILTER, APP_GUARD } from '@nestjs/core';
+import { AppController } from './app.controller';
 import { PrismaModule } from './prisma/prisma.module';
 import { PatientsModule } from './patients/patients.module';
 import { AppointmentsModule } from './appointments/appointments.module';
@@ -27,6 +28,7 @@ import { JwtAuthGuard } from './auth/guards/jwt-auth.guard';
     PatientsModule,
     AppointmentsModule,
   ],
+  controllers: [AppController],
   providers: [
     {
       provide: APP_INTERCEPTOR,
